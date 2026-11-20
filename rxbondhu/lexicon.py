@@ -114,3 +114,34 @@ def lookup_exact(name: str, brands: list[dict] | None = None) -> dict | None:
         if normalise_name(b["brand"]) == key:
             return dict(b)
     return None
+
+
+def suggest_brands(text: str, brands: list[dict] | None = None, n: int = 3,
+                   threshold: int = 40) -> list[dict]:
+    """Top-n verified brand suggestions for the review screen."""
+    brands = brands if brands is not None else load_brands()
+    query = normalise_name(text)
+    if not query or not brands:
+        return []
+    names = [b["brand"] for b in brands]
+    by_name = {b["brand"]: b for b in brands}
+
+    if HAVE_RAPIDFUZZ:
+        hits = process.extract(query, names, scorer=fuzz.WRatio, limit=n, score_cutoff=threshold)
+        result = []
+        for name, score, _ in hits:
+            b = by_name[name]
+            result.append({"brand": b["brand"], "generic": b["generic"], "score": round(float(score), 1)})
+        return result
+
+    scored = sorted(
+        ((difflib.SequenceMatcher(None, query, name.lower()).ratio() * 100, name) for name in names),
+        reverse=True,
+    )
+    result = []
+    for score, name in scored[:n]:
+        if score < threshold:
+            break
+        b = by_name[name]
+        result.append({"brand": b["brand"], "generic": b["generic"], "score": round(float(score), 1)})
+    return result

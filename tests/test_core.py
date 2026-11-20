@@ -8,8 +8,9 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rxbondhu.dose_parser import parse, to_bangla_summary  # noqa: E402
-from rxbondhu.lexicon import load_brands, match_brand, normalise_name  # noqa: E402
+from rxbondhu.lexicon import load_brands, match_brand, normalise_name, suggest_brands  # noqa: E402
 from rxbondhu.safety import duplicate_warning, has_red  # noqa: E402
+from rxbondhu.fusion import fuse  # noqa: E402
 
 
 class TestDoseParser(unittest.TestCase):
@@ -78,6 +79,39 @@ class TestLexicon(unittest.TestCase):
 
     def test_normalise_strips_dosage_words(self):
         self.assertEqual(normalise_name("TAB. NAPA 500mg"), "napa 500")
+
+
+class TestFusion(unittest.TestCase):
+    def setUp(self):
+        self.brands = load_brands()
+
+    def test_green_when_both_agree(self):
+        result = fuse({"brand": "Maxpro", "confidence": 0.93}, "Tab Maxpro 20mg", self.brands)
+        self.assertEqual(result["colour"], "GREEN")
+        self.assertEqual(result["name"], "Maxpro")
+        self.assertFalse(result["needs_confirm"])
+
+    def test_green_with_fuzzy_vlm(self):
+        result = fuse({"brand": "Maxpro", "confidence": 0.91}, "Maxpo", self.brands)
+        self.assertEqual(result["colour"], "GREEN")
+
+    def test_yellow_when_only_cnn_confident(self):
+        result = fuse({"brand": "Napa", "confidence": 0.82}, "", self.brands)
+        self.assertEqual(result["colour"], "YELLOW")
+        self.assertTrue(result["needs_confirm"])
+
+    def test_red_when_readers_disagree(self):
+        result = fuse({"brand": "Napa", "confidence": 0.90}, "Maxpro", self.brands)
+        self.assertEqual(result["colour"], "RED")
+
+    def test_red_when_low_confidence(self):
+        result = fuse({"brand": "Napa", "confidence": 0.20}, "", self.brands)
+        self.assertEqual(result["colour"], "RED")
+        self.assertIn("threshold", result["reason"])
+
+    def test_suggestions_include_brand(self):
+        names = [s["brand"] for s in suggest_brands("Maxpo", self.brands)]
+        self.assertIn("Maxpro", names)
 
 
 class TestSafety(unittest.TestCase):
