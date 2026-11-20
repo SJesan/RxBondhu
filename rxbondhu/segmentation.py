@@ -95,7 +95,7 @@ def segment_lines(image) -> list[dict]:
     rgb, binary = _prepare(image)
     height, width = binary.shape[:2]
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(15, width // 40), 3))
-    boxes = _contour_boxes(binary, kernel, max(40, width // 8), min_word_h=14)
+    boxes = _contour_boxes(binary, kernel, max(40, width // 8), min_h=14)
     boxes.sort(key=lambda b: b[1])
     result = []
     for x, y, w, h in boxes:
