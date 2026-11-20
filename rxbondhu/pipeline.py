@@ -10,9 +10,11 @@ from .fusion import fuse
 from .safety import duplicate_warning, has_red
 
 
-def analyse(image, max_words: int = 30) -> dict:
+def analyse(image, max_words: int = 30, full_image=None) -> dict:
     """Read one cropped medicine area with both AI models.
 
+    Gemini receives the *full* photo when provided — it reads surrounding
+    context better, while our CNN reads only the cropped word images.
     Returns:
       {"items": [ {name, generic, colour, reason, confidence, dose_text, box,
                    cnn_brand, vlm_guess, suggestions, needs_confirm} ],
@@ -23,7 +25,7 @@ def analyse(image, max_words: int = 30) -> dict:
 
     words = segmentation.segment(image)[:max_words]
     cnn_hits = recognizer.predict_words([w["image"] for w in words]) if words else []
-    gemini = vlm.read(image)
+    gemini = vlm.read(full_image if full_image is not None else image)
 
     items = []
     for index, word in enumerate(words):

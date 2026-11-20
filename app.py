@@ -66,11 +66,12 @@ def screen_1():
 
     st.subheader("Crop the medicine area")
     st.session_state.crop = crop_ui(st.session_state.source)
-    st.image(st.session_state.crop, caption="Selected crop", use_container_width=True)
+    st.image(st.session_state.crop, caption="Selected crop", width='stretch')
     if st.button("🔍 Read with both AI models →", type="primary"):
         with st.spinner("Segmenting words, running our CNN and Gemini…"):
             try:
-                st.session_state.analysis = pipeline.analyse(st.session_state.crop)
+                st.session_state.analysis = pipeline.analyse(
+                    st.session_state.crop, full_image=st.session_state.source)
                 st.session_state.analysis_images = st.session_state.analysis.pop("images", [])
                 st.session_state.page = 2
                 st.rerun()
@@ -100,7 +101,7 @@ def screen_2():
     for item in analysis["items"]:
         with st.container(border=True):
             left, right = st.columns([1, 4])
-            left.image(item_image(item), use_container_width=True)
+            left.image(item_image(item), width='stretch')
             right.markdown(f"**{colour_badge(item['colour'])} — {item['name'] or '(unreadable)'}**")
             right.caption(item["reason"])
             right.write(
@@ -164,7 +165,7 @@ def screen_3():
     schedule = st.session_state.schedule
     if schedule:
         st.subheader("আপনার সময়সূচি / Your schedule")
-        st.dataframe(bangla.schedule_rows(schedule["medicines"]), use_container_width=True)
+        st.dataframe(bangla.schedule_rows(schedule["medicines"]), width='stretch')
         if schedule["warnings"]:
             for warning in schedule["warnings"]:
                 st.warning(warning)
