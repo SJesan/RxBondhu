@@ -9,10 +9,10 @@ This is the only step that needs a GPU. Do it after the GitHub repo is public.
 
 ## Steps in the notebook
 
-Cell 1 — get our fresh code (change `YOUR_USERNAME` to your GitHub name):
+Cell 1 — get our fresh code:
 
 ```python
-!git clone https://github.com/YOUR_USERNAME/RxBondhu.git /kaggle/working/RxBondhu
+!git clone https://github.com/SJesan/RxBondhu.git /kaggle/working/RxBondhu
 ```
 
 Cell 2 — add the dataset:

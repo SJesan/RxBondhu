@@ -1,3 +1,14 @@
+---
+title: RxBondhu
+emoji: 💊
+colorFrom: green
+colorTo: blue
+sdk: streamlit
+sdk_version: 1.67.0
+app_file: app.py
+pinned: false
+---
+
 # RxBondhu (রক্সবন্ধু)
 
 **Handwritten prescription photo → clear Bangla medicine schedule + audio**, with GREEN / YELLOW / RED confidence colours and a duplicate-medicine warning.
@@ -79,7 +90,8 @@ Train the CNN on Kaggle: GPU T4 + Internet On, add the dataset as Input, run `tr
 
 ## 7. Live link and demo video
 
-- Live link: **TBD** (Hugging Face Spaces)
+- Code (public repo): **https://github.com/SJesan/RxBondhu** ✅
+- Live app: **TBD** (Hugging Face Spaces)
 - Demo video (max 3 min): **TBD**
 
 ## Safety and limits
