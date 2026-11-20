@@ -1,0 +1,21 @@
+# Secrets — NEVER commit
+.env
+*.env.local
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local tool output
+*.log
+_edge_plan_profile/
+
+# Source documents kept locally for reference (not part of the app)
+rulebook.pdf
+RxBondhu_*.docx
+RxBondhu_code_REFERENCE_ONLY.zip
+RxBondhu_Full_Plan.*

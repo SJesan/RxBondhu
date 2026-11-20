@@ -1,0 +1,17 @@
+streamlit>=1.40
+streamlit-cropper
+opencv-python-headless
+rapidfuzz
+pillow
+numpy
+pandas
+matplotlib
+tabulate
+python-dotenv
+google-genai
+torch
+torchvision
+transformers
+scipy
+uroman
+gTTS
