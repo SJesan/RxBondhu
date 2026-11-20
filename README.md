@@ -37,7 +37,8 @@ RxBondhu reads the medicine area with **two AI models**, checks every name again
 6. **Review screen** — user confirms/fixes every name and dose. Nothing becomes a schedule before this.
 7. **Dose parser** — `1+0+1`, `BD`, `TDS`, `HS`, Bangla dose notes → schedule.
 8. **Safety check** — two brands with the same generic trigger a duplicate warning.
-9. **Bangla schedule + audio** — Bangla table and spoken summary (MMS-TTS, gTTS backup).
+9. **Clean white + Bangla green UI** — 3 guided screens, cards with subtle CSS 3D tilt, and a small locally bundled Three.js capsule hero (`static/three.min.js`).
+10. **Bangla schedule + audio** — Bangla table and spoken summary (MMS-TTS, gTTS backup).
 
 Flow: `photo → crop → segment.py → (recognizer.py CNN + vlm.py Gemini) → lexicon.py → fusion.py → review → dose_parser.py → safety.py → bangla.py/tts.py`.
 

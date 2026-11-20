@@ -13,15 +13,16 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from rxbondhu import bangla, pipeline, recognizer, tts, vlm  # noqa: E402
+from rxbondhu import bangla, pipeline, recognizer, tts, ui, vlm  # noqa: E402
 from rxbondhu.lexicon import load_brands, lookup_exact, suggest_brands  # noqa: E402
 
 st.set_page_config(page_title="RxBondhu | রক্সবন্ধু", page_icon="💊", layout="wide")
 
-DEMO_DISCLAIMER = (
-    "**এটি কেবল একটি পড়ার সহায়তা, ডাক্তারের পরামর্শ নয়।** "
+DISCLAIMER_TEXT = (
+    "এটি কেবল একটি পড়ার সহায়তা, ডাক্তারের পরামর্শ নয়। "
     "কোনো ওষুধ শুরু, বদল বা বন্ধ করার আগে ডাক্তার বা ফার্মাসিস্টের সাথে নিশ্চিত করুন।"
 )
+DEMO_DISCLAIMER = f'<div class="rx-disclaimer"><b>{DISCLAIMER_TEXT}</b></div>'
 
 
 def init_state():
@@ -44,12 +45,12 @@ def crop_ui(image: Image.Image) -> Image.Image:
 
 
 def colour_badge(colour: str) -> str:
-    return {"GREEN": "🟢 GREEN", "YELLOW": "🟡 YELLOW", "RED": "🔴 RED"}.get(colour, colour)
+    """Kept as a thin wrapper so the rest of the app stays unchanged."""
+    return ui.badge(colour)
 
 
 def screen_1():
-    st.header("১. ছবি দিন / Step 1 — Photo and crop")
-    st.caption("Upload a prescription photo or take one. Then drag a box around the medicine lines only.")
+    ui.step_header(1, "১. ছবি দিন", "Upload a prescription photo or take one, then drag a box around the medicine lines only.")
     tab_upload, tab_camera = st.tabs(["Upload photo", "Use camera"])
     with tab_upload:
         uploaded = st.file_uploader("Prescription image", type=["jpg", "jpeg", "png", "webp"])
@@ -80,7 +81,7 @@ def screen_1():
 
 
 def screen_2():
-    st.header("২. দুই AI-র পড়া / Step 2 — Two readers")
+    ui.step_header(2, "২. দুই AI-র পড়া", "Two independent readers, one safety decision — nothing becomes a schedule yet.")
     analysis = st.session_state.analysis
     if not analysis:
         st.warning("Go back to Step 1 and read a photo first.")
@@ -102,7 +103,11 @@ def screen_2():
         with st.container(border=True):
             left, right = st.columns([1, 4])
             left.image(item_image(item), width='stretch')
-            right.markdown(f"**{colour_badge(item['colour'])} — {item['name'] or '(unreadable)'}**")
+            right.markdown(
+                f"{colour_badge(item['colour'])} "
+                f"<b style='color:#0B4B2A;font-size:1.05rem;'>{item['name'] or '(unreadable)'}</b>",
+                unsafe_allow_html=True,
+            )
             right.caption(item["reason"])
             right.write(
                 f"CNN: `{item['cnn_brand'] or '—'}` ({item['cnn_confidence']:.2f}) · "
@@ -138,12 +143,12 @@ def item_image(item):
 
 
 def screen_3():
-    st.header("৩. নিশ্চিত করুন ও সময়সূচি / Step 3 — Review and schedule")
+    ui.step_header(3, "৩. নিশ্চিত করুন ও সময়সূচি", "You confirm every line. Only then do we build the Bangla schedule.")
     rows = st.session_state.confirmed or []
     if not rows:
         st.warning("Nothing to review yet.")
         return
-    st.markdown(DEMO_DISCLAIMER)
+    st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
 
     brands = load_brands()
     for row in rows:
@@ -155,7 +160,11 @@ def screen_3():
                                         row["dose"], key=f"dose_{row['index']}")
             exact = lookup_exact(row["name"], brands)
             row["generic"] = exact["generic"] if exact else row["generic"]
-            c3.markdown(f"{colour_badge(row['colour'])}\n\nGeneric: **{row['generic'] or 'unknown'}**")
+            c3.markdown(
+                f"{colour_badge(row['colour'])}<br><br>"
+                f"Generic: <b>{row['generic'] or 'unknown'}</b>",
+                unsafe_allow_html=True,
+            )
 
     if st.button("✅ Build my Bangla schedule", type="primary"):
         chosen = [r for r in rows if not r["name"].startswith("—")]
@@ -169,7 +178,7 @@ def screen_3():
         if schedule["warnings"]:
             for warning in schedule["warnings"]:
                 st.warning(warning)
-        st.info(DEMO_DISCLAIMER)
+        st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
         summary = bangla.summary_text(schedule)
         with st.expander("Bangla summary text"):
             st.write(summary)
@@ -210,6 +219,8 @@ def main():
     # Keep PIL crops for display; they are not serialisable into a dataframe.
     if "analysis_images" not in st.session_state:
         st.session_state.analysis_images = []
+    ui.inject_css()
+    ui.hero()
     sidebar()
     if st.session_state.page == 1:
         screen_1()
