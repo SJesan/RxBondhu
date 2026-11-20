@@ -6,7 +6,7 @@
 
 **Hackathon:** CoU AI Hackathon 2026 · Healthcare & Wellbeing  
 **Team:** Solo · **Member:** M M Sadikul Islam Jesan  
-**Status (21 Nov 2026):** Fresh build from zero. Project structure and first commit today; modules are written step by step. Full design: [`docs/PLAN.md`](docs/PLAN.md).
+**Status (21 Nov 2026):** Fresh build from zero. Skeleton, dose parser, brand lexicon, fusion, segmentation, Gemini reader, CNN training/inference, 3-screen app and tests are written. CNN training on Kaggle and live-definition checks are next. Full design: [`docs/PLAN.md`](docs/PLAN.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
 ---
 
@@ -64,6 +64,16 @@ streamlit run app.py
 ```
 
 Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the reader only.
+
+Tests (no network needed):
+
+```bash
+.\venv\Scripts\python.exe tests\test_core.py
+.\venv\Scripts\python.exe tests\test_pipeline.py
+.\venv\Scripts\python.exe tests\test_segmentation.py
+```
+
+Evaluation table and judge proof: [`docs/EVALUATION.md`](docs/EVALUATION.md).
 
 Train the CNN on Kaggle: GPU T4 + Internet On, add the dataset as Input, run `training/train_cnn_kaggle.py`, download `rx_cnn.pt`, `labels.json`, `test_report.csv` into `models/`.
 
