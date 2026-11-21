@@ -1,0 +1,11 @@
+source=CSV(s): testing_labels.csv[MEDICINE_NAME], training_labels.csv[MEDICINE_NAME], validation_labels.csv[MEDICINE_NAME]
+samples=4680
+classes=78
+img_size=128x384
+split=3120/780/780
+epochs=12
+batch=32
+best_val_accuracy=0.9577
+test_accuracy=0.9590
+torch=2.11.0+cu130
+seed=42

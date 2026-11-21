@@ -1,0 +1,23 @@
+Input root : /kaggle/input
+Source     : CSV(s): testing_labels.csv[MEDICINE_NAME], training_labels.csv[MEDICINE_NAME], validation_labels.csv[MEDICINE_NAME]
+Samples    : 4680  Classes: 78
+Top classes: [('Aceta', 60), ('Ace', 60), ('Alatrol', 60), ('Amodis', 60), ('Atrizin', 60), ('Axodin', 60), ('Azithrocin', 60), ('Azyth', 60)]
+Split      : train=3120 val=780 test=780
+Device     : cuda
+Downloading: "https://download.pytorch.org/models/efficientnet_b0_rwightman-7f5810bc.pth" to /root/.cache/torch/hub/checkpoints/efficientnet_b0_rwightman-7f5810bc.pth
+100%|███████████████████████████████████████| 20.5M/20.5M [00:00<00:00, 141MB/s]
+Epoch 01/12  train 3.9080/0.150  val 3.1328/0.314
+Epoch 02/12  train 2.5848/0.509  val 2.0146/0.645
+Epoch 03/12  train 1.6599/0.792  val 1.3903/0.856
+Epoch 04/12  train 1.2581/0.900  val 1.1865/0.910
+Epoch 05/12  train 1.0764/0.953  val 1.1326/0.917
+Epoch 06/12  train 0.9895/0.972  val 1.0713/0.941
+Epoch 07/12  train 0.9398/0.987  val 1.0327/0.956
+Epoch 08/12  train 0.9137/0.988  val 1.0243/0.953
+Epoch 09/12  train 0.8924/0.992  val 1.0094/0.956
+Epoch 10/12  train 0.8801/0.993  val 1.0096/0.958
+Epoch 11/12  train 0.8757/0.994  val 1.0032/0.955
+Epoch 12/12  train 0.8746/0.994  val 1.0015/0.956
+Best val accuracy: 0.9577
+TEST ACCURACY: 0.9590 (748/780)
+Saved model, labels.json, test_report.csv and training_summary.txt to /kaggle/working

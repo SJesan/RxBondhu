@@ -17,7 +17,7 @@ pinned: false
 
 **Hackathon:** CoU AI Hackathon 2026 · Healthcare & Wellbeing  
 **Team:** Solo · **Member:** M M Sadikul Islam Jesan  
-**Status (21 Nov 2026):** Fresh build from zero. Skeleton, dose parser, brand lexicon, fusion, segmentation, Gemini reader, CNN training/inference, 3-screen app and tests are written. CNN training on Kaggle and live-definition checks are next. Full design: [`docs/PLAN.md`](docs/PLAN.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
+**Status (22 Nov 2026):** Fresh build from zero. All three screens, dose parser, brand lexicon, fusion, segmentation, Gemini reader and CNN inference are working. Our CNN was trained on Kaggle T4: **validation 0.9577, test 0.9590 (748/780)** across 78 brands. Full log: [`results/kaggle_training_log.txt`](results/kaggle_training_log.txt) · proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
 ---
 
@@ -47,7 +47,7 @@ Flow: `photo → crop → segment.py → (recognizer.py CNN + vlm.py Gemini) →
 - **Language:** Python 3.11 (recommended)
 - **App:** Streamlit, streamlit-cropper
 - **Vision / matching:** OpenCV, NumPy, Pillow, RapidFuzz
-- **Our model:** EfficientNet-B0 (torchvision, ImageNet weights), fine-tuned on the public **Doctor's Handwritten Prescription BD** dataset (Kaggle: mamun1113) — 4,680 word images, 78 brands, 15 generics, split 3,120 / 780 / 780
+- **Our model:** EfficientNet-B0 (torchvision, ImageNet weights), fine-tuned by us on the public **Doctor's Handwritten Prescription BD** dataset (Kaggle: `mamun1113`) — 4,680 word images, 78 brands, split 3,120 / 780 / 780, **test accuracy 0.9590 (748/780)**, validation 0.9577, 128×384 letterbox input, 12 epochs, seed 42
 - **Second reader:** Google Gemini via Google AI Studio (`google-genai`, model in `RX_VLM_MODEL`)
 - **Speech:** `facebook/mms-tts-ben` (CC-BY-NC-4.0), gTTS fallback
 - **Training:** Kaggle T4 GPU · **Deployment:** Hugging Face Spaces (planned)
@@ -87,7 +87,7 @@ Tests (no network needed):
 
 Evaluation table and judge proof: [`docs/EVALUATION.md`](docs/EVALUATION.md).
 
-Train the CNN on Kaggle: GPU T4 + Internet On, add the dataset as Input, run `training/train_cnn_kaggle.py`, download `rx_cnn.pt`, `labels.json`, `test_report.csv` into `models/`.
+The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `training/train_cnn_kaggle.py` run with seed 42. The four outputs — `rx_cnn.pt`, `labels.json`, `test_report.csv`, `training_summary.txt` — live in `models/`; the raw training log is in `results/kaggle_training_log.txt`.
 
 ## 7. Live link and demo video
 
