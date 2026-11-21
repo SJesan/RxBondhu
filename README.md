@@ -84,7 +84,8 @@ Tests (no network needed):
 .\venv\Scripts\python.exe tests\test_segmentation.py
 ```
 
-Evaluation table and judge proof: [`docs/EVALUATION.md`](docs/EVALUATION.md).
+Evaluation table and judge proof: [`docs/EVALUATION.md`](docs/EVALUATION.md).  
+Detailed 10-page project report (architecture, training, evaluation, rule compliance, demo script, Q&A): [`docs/RxBondhu_Project_Report.pdf`](docs/RxBondhu_Project_Report.pdf).
 
 The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `training/train_cnn_kaggle.py` run with seed 42. The four outputs — `rx_cnn.pt`, `labels.json`, `test_report.csv`, `training_summary.txt` — live in `models/`; the raw training log is in `results/kaggle_training_log.txt`.
 
