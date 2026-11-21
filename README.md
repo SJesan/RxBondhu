@@ -48,9 +48,9 @@ Flow: `photo → crop → segment.py → (recognizer.py CNN + vlm.py Gemini) →
 - **App:** Streamlit, streamlit-cropper
 - **Vision / matching:** OpenCV, NumPy, Pillow, RapidFuzz
 - **Our model:** EfficientNet-B0 (torchvision, ImageNet weights), fine-tuned by us on the public **Doctor's Handwritten Prescription BD** dataset (Kaggle: `mamun1113`) — 4,680 word images, 78 brands, split 3,120 / 780 / 780, **test accuracy 0.9590 (748/780)**, validation 0.9577, 128×384 letterbox input, 12 epochs, seed 42
-- **Second reader:** Google Gemini via Google AI Studio (`google-genai`, model in `RX_VLM_MODEL`)
+- **Second reader:** Google Gemini via Google AI Studio (`google-genai`, serial fallback chain in `RX_VLM_MODELS`)
 - **Speech:** `facebook/mms-tts-ben` (CC-BY-NC-4.0), gTTS fallback
-- **Training:** Kaggle T4 GPU · **Submission proof:** ≤3-min demo video (free HF accounts can no longer host Streamlit Spaces)
+- **Training:** Kaggle T4 GPU · **Submission proof:** public live link (demo video kept as optional backup)
 - Full credits and licences: [`RESOURCES.md`](RESOURCES.md)
 
 ## 4. AI tools used and for what (disclosure)
@@ -92,7 +92,8 @@ The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `tr
 
 - Code (public repo): **https://github.com/SJesan/RxBondhu** ✅
 - Live app (free, Streamlit Community Cloud): **https://rxbondhu.streamlit.app** ✅ — see [`docs/DEPLOY.md`](docs/DEPLOY.md)
-- Demo video (max 3 min): **to be recorded from `docs/DEMO_SCRIPT.md`** ✅
+- Demo video (optional backup, max 3 min): script ready in [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md)
+- No login in the app — **no test credentials needed**. The live link is public and will stay up until results.
 
 ## Safety and limits
 
