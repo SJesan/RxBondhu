@@ -92,7 +92,7 @@ The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `tr
 ## 7. Live link and demo video
 
 - Code (public repo): **https://github.com/SJesan/RxBondhu** ✅
-- Live app (free): **to be deployed on Streamlit Community Cloud** — see [`docs/DEPLOY.md`](docs/DEPLOY.md)
+- Live app (free, Streamlit Community Cloud): **https://rxbondhu.streamlit.app** ✅ — see [`docs/DEPLOY.md`](docs/DEPLOY.md)
 - Demo video (max 3 min): **to be recorded from `docs/DEMO_SCRIPT.md`** ✅
 
 ## Safety and limits
