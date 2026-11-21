@@ -142,9 +142,10 @@ HERO_HTML = """
 """
 
 
-def inject_css(scale: str = "Normal") -> None:
+def inject_css(scale=None) -> None:
     """Apply the clean white + Bangla green theme, with an optional text-size boost."""
     from streamlit import markdown
+    scale = str(scale or "Normal")
     factor = {"Normal": 1.0, "Large": 1.15, "Extra large": 1.3}.get(scale, 1.0)
     size_css = f"""
 <style>
