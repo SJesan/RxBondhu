@@ -10,22 +10,31 @@ from .fusion import fuse
 from .safety import duplicate_warning, has_red
 
 
-def analyse(image, max_words: int = 30, full_image=None) -> dict:
+def analyse(image, max_words: int = 30, full_image=None,
+            skip_vlm: bool = False, resize_vlm: bool = True) -> dict:
     """Read one cropped medicine area with both AI models.
 
     Gemini receives the *full* photo when provided — it reads surrounding
-    context better, while our CNN reads only the cropped word images.
-    Returns:
-      {"items": [ {name, generic, colour, reason, confidence, dose_text, box,
-                   cnn_brand, vlm_guess, suggestions, needs_confirm} ],
-       "vlm_raw": str, "vlm_error": str, "cnn_available": bool,
-       "word_count": int}
+    context better, while our CNN reads only the cropped word images. The full
+    image is downscaled to 1600 px on the long side before upload to save quota.
+
+    Set ``skip_vlm=True`` for the session quota guard: no API call is made and
+    the UI honestly reports CNN-only mode.
     """
     from . import recognizer, segmentation, vlm
 
     words = segmentation.segment(image)[:max_words]
     cnn_hits = recognizer.predict_words([w["image"] for w in words]) if words else []
-    gemini = vlm.read(full_image if full_image is not None else image)
+    if skip_vlm:
+        gemini = {"lines": [], "raw": "",
+                  "error": "Session reading limit reached - CNN-only mode",
+                  "model": "offline"}
+    else:
+        sent = full_image if full_image is not None else image
+        if resize_vlm and sent is not None:
+            sent = sent.copy()
+            sent.thumbnail((1600, 1600))
+        gemini = vlm.read(sent)
 
     items = []
     for index, word in enumerate(words):
@@ -48,6 +57,7 @@ def analyse(image, max_words: int = 30, full_image=None) -> dict:
         "vlm_raw": gemini["raw"],
         "vlm_error": gemini["error"],
         "vlm_model": gemini["model"],
+        "vlm_lines": gemini["lines"],
         "cnn_available": recognizer.available(),
         "word_count": len(words),
     }
