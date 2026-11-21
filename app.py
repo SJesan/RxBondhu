@@ -264,7 +264,13 @@ def main():
     # Keep PIL crops for display; they are not serialisable into a dataframe.
     if "analysis_images" not in st.session_state:
         st.session_state.analysis_images = []
-    ui.inject_css(st.session_state.get("font_scale", "Normal"))
+    ui.inject_css()
+    scale = st.session_state.get("font_scale", "Normal")
+    factor = {"Normal": 1.0, "Large": 1.15, "Extra large": 1.3}.get(str(scale), 1.0)
+    st.markdown(
+        f"<style>.stMarkdown p,.stMarkdown li,.stCaption{{font-size:calc(0.95rem * {factor})!important;}}</style>",
+        unsafe_allow_html=True,
+    )
     ui.hero()
     sidebar()
     if st.session_state.page == 1:
