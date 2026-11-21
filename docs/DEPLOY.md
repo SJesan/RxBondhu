@@ -18,7 +18,7 @@ prototype for the on-site final.
    - Secrets field:
      ```toml
      GEMINI_API_KEY = "your-real-key"
-     RX_VLM_MODEL = "gemini-2.5-flash"
+     RX_VLM_MODELS = "gemini-2.5-flash, gemini-3.5-flash-lite, gemini-3.1-flash-lite"
      ```
    The key is stored in Streamlit's secret store, **never in the repo**.
 5. Click **Deploy**. First boot takes a few minutes because `torch` is installed.

@@ -25,6 +25,13 @@ Rules:
 """
 
 
+DEFAULT_MODELS = (
+    "gemini-2.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+)
+
+
 def _secret(name: str, default: str = "") -> str:
     """Read a secret from Streamlit Cloud first, then local .env/os.environ."""
     try:
@@ -35,6 +42,15 @@ def _secret(name: str, default: str = "") -> str:
     except Exception:
         pass
     return os.getenv(name, default).strip()
+
+
+def _model_chain(explicit: str | None = None) -> list[str]:
+    """Models to try in order; one Gemini key serves all of them."""
+    if explicit:
+        return [explicit.strip()]
+    raw = _secret("RX_VLM_MODELS", "") or _secret("RX_VLM_MODEL", "")
+    parts = [part.strip() for part in raw.split(",") if part.strip()]
+    return parts or list(DEFAULT_MODELS)
 
 
 def _client():
@@ -84,7 +100,7 @@ def read(image, model: str | None = None) -> dict:
     if client is None:
         return {"lines": [], "raw": "", "error": error, "model": model or ""}
 
-    model = model or _secret("RX_VLM_MODEL", "gemini-2.5-flash") or "gemini-2.5-flash"
+    chain = _model_chain(model)
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, format="JPEG", quality=90)
     payload = buffer.getvalue()
@@ -93,10 +109,25 @@ def read(image, model: str | None = None) -> dict:
         from google.genai import types
         parts = [types.Part.from_bytes(data=payload, mime_type="image/jpeg"),
                  types.Part.from_text(text=_PROMPT)]
-        response = client.models.generate_content(model=model, contents=parts)
-        raw = (response.text or "").strip()
     except Exception as exc:
-        return {"lines": [], "raw": "", "error": f"Gemini call failed: {exc}", "model": model}
+        return {"lines": [], "raw": "", "error": f"Could not build Gemini request: {exc}", "model": ""}
+
+    errors: list[str] = []
+    raw = ""
+    used = chain[-1]
+    for candidate in chain:
+        try:
+            response = client.models.generate_content(model=candidate, contents=parts)
+            raw = (response.text or "").strip()
+            used = candidate
+            if raw:
+                break
+        except Exception as exc:
+            errors.append(f"{candidate}: {exc}")
+    if not raw:
+        return {"lines": [], "raw": "",
+                "error": "Gemini models failed: " + " | ".join(errors), "model": used}
+    model = used
 
     lines = []
     for item in _extract_json(raw):

@@ -56,8 +56,7 @@ Flow: `photo → crop → segment.py → (recognizer.py CNN + vlm.py Gemini) →
 ## 4. AI tools used and for what (disclosure)
 
 - **OpenCode** (AI coding agent, model Big Pickle) — planning, writing and debugging the code, README and presentation drafts; created the full plan in `docs/PLAN.md`.
-- **Google Gemini** (Google AI Studio, model set in `RX_VLM_MODEL`) — the in-app AI reader that produces medicine names and dose text from the image.
-- *Add one honest line here for any other assistant you actually used (Claude, ChatGPT, Copilot, etc.), with the task it performed.*
+- **Google Gemini** (Google AI Studio) — the in-app AI reader that produces medicine names and dose text from the image. Primary `gemini-2.5-flash`, then automatic fallbacks `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` (one key, no hard-coded output).
 
 All models/APIs above are real and run live; no output is hard-coded or faked.
 
