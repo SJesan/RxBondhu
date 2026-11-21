@@ -142,10 +142,20 @@ HERO_HTML = """
 """
 
 
-def inject_css() -> None:
-    """Apply the clean white + Bangla green theme on top of Streamlit's theme."""
+def inject_css(scale: str = "Normal") -> None:
+    """Apply the clean white + Bangla green theme, with an optional text-size boost."""
     from streamlit import markdown
-    markdown(CLEAN_CSS, unsafe_allow_html=True)
+    factor = {"Normal": 1.0, "Large": 1.15, "Extra large": 1.3}.get(scale, 1.0)
+    size_css = f"""
+<style>
+.rx-app-text p, .rx-app-text li, .stCaption, .stMarkdown p, .stMarkdown li {{
+  font-size: calc(0.95rem * {factor}) !important;
+  line-height: 1.5;
+}}
+.stMetric label {{ font-size: calc(0.8rem * {factor}) !important; }}
+</style>
+"""
+    markdown(CLEAN_CSS + size_css, unsafe_allow_html=True)
 
 
 def hero() -> None:

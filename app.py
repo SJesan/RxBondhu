@@ -7,13 +7,14 @@ Run:  streamlit run app.py
 import io
 import os
 import sys
+import tempfile
 
 import streamlit as st
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from rxbondhu import bangla, pipeline, recognizer, tts, ui, vlm  # noqa: E402
+from rxbondhu import bangla, pipeline, recognizer, reminders, tts, ui, vlm  # noqa: E402
 from rxbondhu.lexicon import load_brands, lookup_exact, suggest_brands  # noqa: E402
 
 st.set_page_config(page_title="RxBondhu | রক্সবন্ধু", page_icon="💊", layout="wide")
@@ -27,7 +28,8 @@ DEMO_DISCLAIMER = f'<div class="rx-disclaimer"><b>{DISCLAIMER_TEXT}</b></div>'
 
 def init_state():
     defaults = {"page": 1, "source": None, "crop": None, "analysis": None,
-                "confirmed": None, "schedule": None, "audio": None}
+                "confirmed": None, "schedule": None, "audio": None,
+                "read_count": 0, "font_scale": "Normal"}
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -68,12 +70,18 @@ def screen_1():
     st.subheader("Crop the medicine area")
     st.session_state.crop = crop_ui(st.session_state.source)
     st.image(st.session_state.crop, caption="Selected crop", width='stretch')
+    if st.session_state.read_count >= 5:
+        st.caption("Session reading limit reached — Gemini is paused, our CNN still works.")
     if st.button("🔍 Read with both AI models →", type="primary"):
-        with st.spinner("Segmenting words, running our CNN and Gemini…"):
+        skip_vlm = st.session_state.read_count >= 5
+        with st.spinner("Segmenting words, running our CNN"
+                        + ("…" if skip_vlm else " and Gemini…")):
             try:
                 st.session_state.analysis = pipeline.analyse(
-                    st.session_state.crop, full_image=st.session_state.source)
+                    st.session_state.crop, full_image=st.session_state.source,
+                    skip_vlm=skip_vlm)
                 st.session_state.analysis_images = st.session_state.analysis.pop("images", [])
+                st.session_state.read_count += 1
                 st.session_state.page = 2
                 st.rerun()
             except Exception as exc:
@@ -99,6 +107,7 @@ def screen_2():
 
     if not analysis["items"]:
         st.error("No words detected. Try a tighter, better-lit crop.")
+    st.caption("Word crop on the left, both readings on the right — compare them with the paper.")
     for item in analysis["items"]:
         with st.container(border=True):
             left, right = st.columns([1, 4])
@@ -113,6 +122,12 @@ def screen_2():
                 f"CNN: `{item['cnn_brand'] or '—'}` ({item['cnn_confidence']:.2f}) · "
                 f"Gemini: `{item['vlm_guess'] or item['vlm_text'] or '—'}`"
             )
+            if right.button("🚩 Looks wrong — mark RED", key=f"wrong_{item['index']}"):
+                item["colour"] = "RED"
+                item["reason"] = (str(item.get("reason") or "")
+                                  + " User flagged this crop as wrong.").strip()
+                st.session_state.analysis = analysis
+                st.rerun()
     if st.button("✏️ Confirm / correct each line →", type="primary"):
         brands = load_brands()
         rows = []
@@ -192,6 +207,31 @@ def screen_3():
             else:
                 st.error(f"Audio failed: {result['error']}")
 
+        reminder = reminders.make_ics(schedule)
+        st.download_button(
+            "📅 Download reminders (.ics)",
+            data=reminder["ics"].encode("utf-8"),
+            file_name="rxbondhu-reminders.ics",
+            mime="text/calendar",
+        )
+        st.caption(
+            f"{len(reminder['events'])} calendar events generated. "
+            "Times 08:00 / 13:00 / 21:00 are examples — please confirm with the prescriber."
+        )
+        for warning in reminder["warnings"]:
+            st.caption(warning)
+
+        st.markdown("**Per-medicine audio**")
+        for index, med in enumerate(schedule["medicines"]):
+            if st.button(f"🔊 {med['name']}", key=f"med_audio_{index}"):
+                one = {"medicines": [med], "warnings": []}
+                path = os.path.join(tempfile.gettempdir(), f"rxbondhu_med_{index}.wav")
+                result = tts.speak_bangla(bangla.summary_text(one), output=path)
+                if result["path"]:
+                    st.audio(result["path"])
+                else:
+                    st.error(f"Audio failed: {result['error']}")
+
     if st.button("← Back to reading"):
         st.session_state.page = 2
         st.rerun()
@@ -211,6 +251,11 @@ def sidebar():
             st.warning("CNN checkpoint not found — Gemini-only mode")
         key_ok, _ = vlm.available()
         st.info(f"Gemini key: {'yes' if key_ok else 'no'}")
+        choices = ["Normal", "Large", "Extra large"]
+        chosen = st.selectbox("Text size", choices,
+                              index=choices.index(st.session_state.font_scale),
+                              key="font_picker")
+        st.session_state.font_scale = chosen
         st.caption("Built fresh for CoU AI Hackathon 2026. AI tools: OpenCode + Google Gemini.")
 
 
@@ -219,7 +264,7 @@ def main():
     # Keep PIL crops for display; they are not serialisable into a dataframe.
     if "analysis_images" not in st.session_state:
         st.session_state.analysis_images = []
-    ui.inject_css()
+    ui.inject_css(st.session_state.font_scale)
     ui.hero()
     sidebar()
     if st.session_state.page == 1:
