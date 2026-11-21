@@ -1,6 +1,7 @@
 # Secrets — NEVER commit
 .env
 *.env.local
+.streamlit/secrets.toml
 
 # Python
 venv/

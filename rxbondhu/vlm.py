@@ -25,9 +25,21 @@ Rules:
 """
 
 
+def _secret(name: str, default: str = "") -> str:
+    """Read a secret from Streamlit Cloud first, then local .env/os.environ."""
+    try:
+        import streamlit as st
+        value = st.secrets.get(name, "")
+        if value:
+            return str(value).strip()
+    except Exception:
+        pass
+    return os.getenv(name, default).strip()
+
+
 def _client():
     load_dotenv()
-    key = os.getenv("GEMINI_API_KEY", "").strip()
+    key = _secret("GEMINI_API_KEY")
     if not key:
         return None, "GEMINI_API_KEY is empty"
     try:
@@ -72,7 +84,7 @@ def read(image, model: str | None = None) -> dict:
     if client is None:
         return {"lines": [], "raw": "", "error": error, "model": model or ""}
 
-    model = model or os.getenv("RX_VLM_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    model = model or _secret("RX_VLM_MODEL", "gemini-2.5-flash") or "gemini-2.5-flash"
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, format="JPEG", quality=90)
     payload = buffer.getvalue()

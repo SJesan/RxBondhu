@@ -92,7 +92,7 @@ The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `tr
 ## 7. Live link and demo video
 
 - Code (public repo): **https://github.com/SJesan/RxBondhu** ✅
-- Live app: **not hosted** — Hugging Face removed the free Streamlit SDK; the rulebook accepts a video instead
+- Live app (free): **to be deployed on Streamlit Community Cloud** — see [`docs/DEPLOY.md`](docs/DEPLOY.md)
 - Demo video (max 3 min): **to be recorded from `docs/DEMO_SCRIPT.md`** ✅
 
 ## Safety and limits
