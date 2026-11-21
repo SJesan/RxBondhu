@@ -4,7 +4,7 @@ import os
 import sys
 import unittest
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -12,14 +12,12 @@ from rxbondhu import segmentation  # noqa: E402
 
 
 def make_image():
+    """Font-independent word blobs so the test behaves the same on Linux/Windows."""
     image = Image.new("RGB", (700, 220), "white")
     draw = ImageDraw.Draw(image)
-    try:
-        font = ImageFont.truetype("arial.ttf", 42)
-    except OSError:
-        font = ImageFont.load_default()
-    draw.text((30, 25), "Napa 1+0+1", fill="black", font=font)
-    draw.text((30, 120), "Maxpro BD", fill="black", font=font)
+    for y in (30, 125):
+        for x in (30, 150, 280, 420):
+            draw.rectangle([x, y, x + 85, y + 42], fill="black")
     return image
 
 
