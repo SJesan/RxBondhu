@@ -33,9 +33,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rxbondhu.image_transforms import letterbox  # noqa: E402
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
-LABEL_COLS_BRAND = ("brand", "medicine", "label", "name", "target", "class")
-LABEL_COLS_GENERIC = ("generic", "class", "label")
-PATH_COLS = ("image", "filename", "file", "path", "image_path", "file_name", "img")
+PATH_KEYS = ("image", "img", "file", "path")
+BRAND_KEYS = ("medicine", "brand", "drug")
+GENERIC_KEYS = ("generic",)
+FALLBACK_LABEL_KEYS = ("label", "class", "target", "name")
+
+
+def choose_column(headers: dict[str, str], keys, exclude=None):
+    """Pick the first header containing any keyword, skipping an already-used column."""
+    for lower, original in headers.items():
+        if original == exclude:
+            continue
+        if any(key in lower for key in keys):
+            return original
+    return None
 
 
 def seed_all(seed: int) -> None:
@@ -74,9 +85,11 @@ def read_annotation_csv(csv_path: Path, labels_kind: str
     with csv_path.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
         reader = csv.DictReader(fh)
         headers = {h.strip().lower(): h for h in (reader.fieldnames or [])}
-        path_col = next((headers[c] for c in PATH_COLS if c in headers), None)
-        wanted = LABEL_COLS_GENERIC if labels_kind == "generic" else LABEL_COLS_BRAND
-        label_col = next((headers[c] for c in wanted if c in headers), None)
+        path_col = choose_column(headers, PATH_KEYS)
+        wanted = GENERIC_KEYS if labels_kind == "generic" else BRAND_KEYS
+        label_col = choose_column(headers, wanted, exclude=path_col)
+        if label_col is None:
+            label_col = choose_column(headers, FALLBACK_LABEL_KEYS, exclude=path_col)
         if not path_col or not label_col:
             return [], []
         by_name = image_name_index(csv_path.parent)
