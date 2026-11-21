@@ -16,5 +16,6 @@
 **Before submitting, confirm:**
 - [ ] Certificate name exactly as needed: `M M Sadikul Islam Jesan`
 - [ ] Reporting time, venue, start and deadline from organiser email/website
-- [ ] Real-handwriting table filled from actual Rx tests (no invented numbers)
+- [ ] Real-handwriting table filled from actual Rx tests (no invented numbers) — follow [`docs/HANDWRITTEN_TEST_GUIDE.md`](HANDWRITTEN_TEST_GUIDE.md)
+- [ ] GitHub Actions badge is green on README
 - [ ] Submit at least 10 minutes early
