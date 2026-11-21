@@ -47,18 +47,38 @@ the accuracy claim is only the held-out test number in section 1.
 ## 2. Handwritten prescription test (10–12 samples) — pending
 
 Every row must be a fresh prescription handwritten by a volunteer, with an
-answer key. Log results in `results/handwritten_test_log.csv` with columns:
-`sample_id, true_medicine, cnn_pred, gemini_pred, combined_pred, cnn_correct, gemini_correct, combined_correct, colour`.
+answer key. The runner `tools/evaluate_handwritten.py` calls the **same pipeline
+as the app** and writes `results/handwritten_test_log.csv`. Template answer key:
+`results/answer_key_template.csv`.
+
+```bash
+.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results\answer_key.csv --images results\rx
+```
 
 | Reader | Correct / total | Accuracy |
 |---|---|---|
 | CNN only | _fill after real test_ | _fill_ |
 | Gemini only | _fill after real test_ | _fill_ |
 | Combined (fusion) | _fill after real test_ | _fill_ |
+| Dose notation | _fill after real test_ | _fill_ |
 
-The combined system counts a line as correct only when the confirmed name
-matches the answer key; GREEN lines are accepted, YELLOW/RED lines are counted
-after user confirmation.
+Safety metrics (the numbers judges should probe first):
+
+| Metric | Definition | Target | Result |
+|---|---|---|---|
+| Unsafe-GREEN rate | wrong names shown GREEN ÷ all GREEN lines | **0** | _fill_ |
+| Catch rate | wrong readings flagged YELLOW/RED ÷ all wrong readings | high | _fill_ |
+| Over-flag rate | correct names shown RED ÷ all correct names | low | _fill_ |
+
+**Domain-gap note (honest answer to the 0.9590 question).** The 0.9590 figure is
+accuracy on **cropped word images from the public dataset**, not on real
+prescription photos. On our phone-photo smoke test, `Napa` scored 0.411 and
+`Maxpro` 0.076 CNN confidence. `Maxpro` **is** one of our 78 classes
+(`models/labels.json`); the low score is a photo-vs-clean-dataset gap, not a
+missing class. That is why fusion shows YELLOW and requires confirmation, and
+why the real-handwriting table above is reported separately.
+
+Results must stay blank until the real test is run. No number is invented.
 
 ## 3. Safety checks demonstrated
 
@@ -75,5 +95,21 @@ after user confirmation.
 .\venv\Scripts\python.exe tests\test_core.py
 .\venv\Scripts\python.exe tests\test_pipeline.py
 .\venv\Scripts\python.exe tests\test_segmentation.py
+.\venv\Scripts\python.exe tests\test_evaluation.py
+.\venv\Scripts\python.exe tests\test_reminders.py
+.\venv\Scripts\python.exe tests\test_preprocess.py
 .\venv\Scripts\python.exe tools\verify_model.py
 ```
+
+## 5. Optional preprocessing ablation — pending
+
+`rxbondhu/preprocess.py` provides switchable shadow removal → CLAHE → deskew →
+auto-crop. It is **off by default** until measured on real handwriting. Run
+`tools/evaluate_handwritten.py --preprocess` and fill this table only from real
+output:
+
+| Variant | CNN name acc. | Combined acc. | Unsafe-GREEN | Notes |
+|---|---|---|---|---|
+| none (default) | _fill_ | _fill_ | _fill_ | baseline |
+| shadow + CLAHE | _fill_ | _fill_ | _fill_ | |
+| + deskew + auto-crop (all) | _fill_ | _fill_ | _fill_ | |
