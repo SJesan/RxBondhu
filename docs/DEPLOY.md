@@ -1,36 +1,29 @@
-# Deploy the live link (Hugging Face Spaces)
+# Live link vs demo video (Hugging Face update, 2026)
 
-The rulebook accepts a live link **or** a ≤3-minute demo video. Do both if possible.
+The rulebook accepts a live link **or** a ≤3-minute demo video. We are using the
+**video** route.
 
-## 1. Create the Space
-1. Go to https://huggingface.co/new-space
-2. Name it `RxBondhu`, choose **Public**, SDK **Streamlit**.
-3. After creation, open the Space → **Settings** → **Repository secrets** → add
-   `GEMINI_API_KEY` = your Google AI Studio key. Never put the key in a file.
+Hugging Face removed the built-in Streamlit SDK in 2025. In 2026 a new Space
+offers only **Static**, **Gradio** and **Docker**; Gradio/Docker on CPU require a
+PRO/Team plan, so a free new account cannot host our Streamlit app. Therefore no
+HF Space push is part of the submission. The judged code stays on GitHub:
+**https://github.com/SJesan/RxBondhu**.
 
-## 2. Push the code
-In `D:\OpenCode\cu` (replace `YOUR_HF_NAME` with your Hugging Face username):
+## What to submit instead
+1. Run the app locally:
+   ```powershell
+   .\venv\Scripts\streamlit.exe run app.py --server.port 8501 --server.headless true --browser.gatherUsageStats false
+   ```
+   Open `http://localhost:8501`.
+2. Record a **≤3-minute** walkthrough following [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
+3. Put the final MP4 link/file in the submission form, and rehearse once so the
+   backup video is ready.
 
-```bash
-git remote add hf https://huggingface.co/spaces/YOUR_HF_NAME/RxBondhu
-git push hf main
-```
-
-Keep the GitHub `origin` remote as well — both must exist. The GitHub repo is the judged submission repo; HF only serves the live demo.
-
-## 3. Wait for build
-The Space installs `requirements.txt` and starts `app.py`. `requirements.txt`
-now points at PyTorch's CPU wheel index so the free CPU Space does not download
-CUDA packages. The first boot can still take a few minutes. Check the **Logs**
-tab for errors.
-
-## 4. Verify
-- Upload `samples/sample_ui_smoke.png`, press **Read with both AI models**.
-- Sidebar must show `Gemini key: yes` once the secret is set.
-- After the CNN files are added to `models/` and pushed, sidebar must show `CNN ready · test acc 0.xxxx`.
-
-## 5. No key yet?
-The app still runs in CNN-only mode with an honest warning. Add the secret later and restart the Space.
+## Key handling
+`.env` is git-ignored and never committed. There is no HF secret to set because
+there is no Space. If the key was ever pasted into a chat, rotate it in Google AI
+Studio and update the local `.env` before the final demo.
 
 ## Important
-Do not commit `.env`. Do not commit any API key. The model file `models/rx_cnn.pt` is ours and is fine to commit.
+Do not commit `.env` or any API key. The checkpoint `models/rx_cnn.pt` is ours
+and is committed.

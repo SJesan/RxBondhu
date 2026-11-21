@@ -50,7 +50,7 @@ Flow: `photo → crop → segment.py → (recognizer.py CNN + vlm.py Gemini) →
 - **Our model:** EfficientNet-B0 (torchvision, ImageNet weights), fine-tuned by us on the public **Doctor's Handwritten Prescription BD** dataset (Kaggle: `mamun1113`) — 4,680 word images, 78 brands, split 3,120 / 780 / 780, **test accuracy 0.9590 (748/780)**, validation 0.9577, 128×384 letterbox input, 12 epochs, seed 42
 - **Second reader:** Google Gemini via Google AI Studio (`google-genai`, model in `RX_VLM_MODEL`)
 - **Speech:** `facebook/mms-tts-ben` (CC-BY-NC-4.0), gTTS fallback
-- **Training:** Kaggle T4 GPU · **Deployment:** Hugging Face Spaces (planned)
+- **Training:** Kaggle T4 GPU · **Submission proof:** ≤3-min demo video (free HF accounts can no longer host Streamlit Spaces)
 - Full credits and licences: [`RESOURCES.md`](RESOURCES.md)
 
 ## 4. AI tools used and for what (disclosure)
@@ -92,8 +92,8 @@ The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `tr
 ## 7. Live link and demo video
 
 - Code (public repo): **https://github.com/SJesan/RxBondhu** ✅
-- Live app: **TBD** (Hugging Face Spaces)
-- Demo video (max 3 min): **TBD**
+- Live app: **not hosted** — Hugging Face removed the free Streamlit SDK; the rulebook accepts a video instead
+- Demo video (max 3 min): **to be recorded from `docs/DEMO_SCRIPT.md`** ✅
 
 ## Safety and limits
 
