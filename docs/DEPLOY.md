@@ -19,7 +19,10 @@ git push hf main
 Keep the GitHub `origin` remote as well — both must exist. The GitHub repo is the judged submission repo; HF only serves the live demo.
 
 ## 3. Wait for build
-The Space installs `requirements.txt` and starts `app.py`. The first boot can take a few minutes because `torch` is large. Check the Logs tab for errors.
+The Space installs `requirements.txt` and starts `app.py`. `requirements.txt`
+now points at PyTorch's CPU wheel index so the free CPU Space does not download
+CUDA packages. The first boot can still take a few minutes. Check the **Logs**
+tab for errors.
 
 ## 4. Verify
 - Upload `samples/sample_ui_smoke.png`, press **Read with both AI models**.
