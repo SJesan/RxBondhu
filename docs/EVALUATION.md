@@ -37,6 +37,10 @@ After copying our checkpoint into `models/`, `tools/verify_model.py` reported:
 - Fusion output: `Napa — YELLOW (cnn 0.411)`, `Maxpro — YELLOW (cnn 0.076)`,
   extra crops `RED` because CNN/Gemini disagreed
 
+The public Streamlit Cloud deployment
+**https://rxbondhu.streamlit.app** was also verified on 22 Nov 2026: the sidebar
+showed `CNN ready · test acc 0.959` and `Gemini key: yes`.
+
 This proves both AI readers run live together. It is **not** an accuracy claim;
 the accuracy claim is only the held-out test number in section 1.
 
