@@ -27,6 +27,13 @@ Cell 3 — inspect what the script can see:
 
 If it prints `Samples: 4680` and `Classes: 78` (or similar), continue. If not, copy the exact input path from the Add Data panel and pass it with `--input`. The script also prints which CSV/folder layout it detected.
 
+The script now handles this dataset's real layout: annotation CSVs with an
+`image` column plus `medicine` / `generic` columns, where the image cell is often
+a bare filename such as `0.png` and the pictures live in a sibling folder. It
+resolves those filenames, de-duplicates images across the train/val/test CSVs,
+and letterboxes every word to **128×384** — the exact same transform the app
+uses at inference time.
+
 Cell 4 — train:
 
 ```python
@@ -45,7 +52,16 @@ Put all four in this repo's `models/` folder on your computer. Then update `docs
 
 ## If the dataset layout is unexpected
 
-The script tries CSV annotations first, then a folder-per-class tree. `--list-only` tells you which one it used. If it finds fewer than 20 samples, open the dataset page and note the actual CSV column names, then tell the coding assistant — the `--input` path and column handling can be adjusted without changing the model design.
+The script tries CSV annotations first, then a folder-per-class tree. `--list-only` tells you which one it used. If it finds fewer than 20 samples, open the dataset page and note the actual CSV column names, then tell the coding assistant — the `--input` path and column handling can be adjusted without changing the model design. Use `--labels-kind generic` if you want to classify generic drugs instead of brands.
+
+## Only public data, never someone else's checkpoint
+
+The Kaggle dataset above is public input and is fine to use. A checkpoint,
+`labels.json`, `test_report.csv`, project zip or training notebook received from
+another person is **not** part of this submission: the rules require a CNN you
+train yourself, and copying those files would make the reported accuracy false.
+They may be glanced at only to understand the dataset format — never copy or
+commit them.
 
 ## Honesty note
 

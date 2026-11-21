@@ -9,6 +9,8 @@ import json
 import os
 from pathlib import Path
 
+from .image_transforms import letterbox
+
 _MODEL = None
 _LABELS = None
 _TRIED = False
@@ -36,7 +38,12 @@ def _load(model_path=DEFAULT_MODEL, labels_path=DEFAULT_LABELS, device=None):
 
     labels = json.loads(Path(labels_path).read_text(encoding="utf-8"))
     names = labels["class_names"]
-    img_size = int(labels.get("img_size") or labels.get("image_size") or 224)
+    raw_size = labels.get("img_size") or labels.get("image_size") or 224
+    if isinstance(raw_size, (list, tuple)):
+        size = (int(raw_size[0]), int(raw_size[1]))
+    else:
+        side = int(raw_size)
+        size = (side, side)
     arch = labels.get("arch", "efficientnet_b0")
 
     model = getattr(models, arch)(weights=None)
@@ -56,7 +63,7 @@ def _load(model_path=DEFAULT_MODEL, labels_path=DEFAULT_LABELS, device=None):
     model.eval()
 
     transform = transforms.Compose([
-        transforms.Resize((img_size, img_size)),
+        transforms.Lambda(lambda im: letterbox(im, size)),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])

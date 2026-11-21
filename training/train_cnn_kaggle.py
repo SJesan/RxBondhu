@@ -3,12 +3,13 @@
 HOW TO USE (Kaggle notebook, GPU T4, Internet On):
 1. Add the Kaggle dataset "Doctor's Handwritten Prescription BD" (mamun1113) as Input.
 2. Put this file (and the whole repo) in a Kaggle notebook.
-3. Run:  !python training/train_cnn_kaggle.py --output /kaggle/working
-4. Download rx_cnn.pt, labels.json, test_report.csv into this repo's models/ folder.
+3. Run:  !python training/train_cnn_kaggle.py --input /kaggle/input --output /kaggle/working
+4. Download rx_cnn.pt, labels.json, test_report.csv, training_summary.txt into models/.
 
-The script deliberately does not assume one exact folder layout: it looks for an
-annotation CSV (image path + label columns) first, then falls back to one
-folder-per-class image tree. Run with --list-only first to see what it found.
+The script deliberately does not assume one exact folder layout: it collects
+annotation CSVs (image filename + medicine/generic columns), resolving bare
+filenames against sibling folders, then falls back to a folder-per-class tree.
+Run with --list-only first to see exactly what it found.
 """
 
 import argparse
@@ -16,7 +17,6 @@ import csv
 import json
 import os
 import random
-import shutil
 import sys
 from collections import Counter
 from pathlib import Path
@@ -28,8 +28,13 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
+# Allow running this file directly from a cloned repo on Kaggle.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from rxbondhu.image_transforms import letterbox  # noqa: E402
+
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
-LABEL_COLS = ("label", "brand", "class", "generic", "medicine", "name", "target")
+LABEL_COLS_BRAND = ("brand", "medicine", "label", "name", "target", "class")
+LABEL_COLS_GENERIC = ("generic", "class", "label")
 PATH_COLS = ("image", "filename", "file", "path", "image_path", "file_name", "img")
 
 
@@ -50,40 +55,65 @@ def find_input_root(explicit: str | None) -> Path:
     return local if local.exists() else Path(".")
 
 
-def read_annotation_csv(csv_path: Path) -> tuple[list[Path], list[str]]:
-    """Read the first CSV that has an image-path column and a label column."""
+def image_name_index(directory: Path) -> dict[str, Path]:
+    """Map every image basename beneath a folder to its resolved path."""
+    index: dict[str, Path] = {}
+    for path in directory.rglob("*"):
+        if path.is_file() and path.suffix.lower() in IMAGE_EXT:
+            index.setdefault(path.name, path)
+    return index
+
+
+def read_annotation_csv(csv_path: Path, labels_kind: str
+                        ) -> tuple[list[tuple[Path, str]], list[str]]:
+    """Read image/label pairs from one CSV.
+
+    Handles both explicit paths and the common case where the CSV stores only
+    a bare filename while the images live in a sibling/child folder.
+    """
     with csv_path.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
         reader = csv.DictReader(fh)
         headers = {h.strip().lower(): h for h in (reader.fieldnames or [])}
         path_col = next((headers[c] for c in PATH_COLS if c in headers), None)
-        label_col = next((headers[c] for c in LABEL_COLS if c in headers), None)
+        wanted = LABEL_COLS_GENERIC if labels_kind == "generic" else LABEL_COLS_BRAND
+        label_col = next((headers[c] for c in wanted if c in headers), None)
         if not path_col or not label_col:
             return [], []
-        pairs = []
+        by_name = image_name_index(csv_path.parent)
+        pairs: list[tuple[Path, str]] = []
         for row in reader:
             rel = (row.get(path_col) or "").strip().strip('"')
             label = (row.get(label_col) or "").strip()
             if not rel or not label:
                 continue
-            # CSV paths are often relative to the CSV itself or its parent.
-            candidates = [csv_path.parent / rel, csv_path.parent.parent / rel,
-                          csv_path.parent / Path(rel).name]
-            image = next((p for p in candidates if p.exists()), None)
+            direct = [csv_path.parent / rel, csv_path.parent.parent / rel]
+            image = next((p for p in direct if p.exists()), None)
             if image is None:
-                continue
-            pairs.append((image, label))
+                image = by_name.get(Path(rel).name)
+            if image is not None:
+                pairs.append((image, label))
         return pairs, [label_col]
 
 
-def collect_samples(root: Path) -> tuple[list[Path], list[str], str]:
+def collect_samples(root: Path, labels_kind: str) -> tuple[list[Path], list[str], str]:
     """Return (image paths, labels, description of the source used)."""
+    pairs: list[tuple[Path, str]] = []
+    sources: list[str] = []
+    seen: set[str] = set()
     csvs = [p for p in root.rglob("*.csv") if p.stat().st_size < 50_000_000]
-    # Prefer CSVs that actually annotate images.
     for csv_path in sorted(csvs):
-        pairs, cols = read_annotation_csv(csv_path)
-        if len(pairs) >= 20:
-            return ([p for p, _ in pairs], [lbl for _, lbl in pairs],
-                    f"CSV {csv_path.name} (columns {', '.join(cols)})")
+        found, cols = read_annotation_csv(csv_path, labels_kind)
+        if not found:
+            continue
+        sources.append(f"{csv_path.name}[{','.join(cols)}]")
+        for path, label in found:
+            key = str(path.resolve())
+            if key not in seen:
+                seen.add(key)
+                pairs.append((path, label))
+    if len(pairs) >= 20:
+        return ([p for p, _ in pairs], [lbl for _, lbl in pairs],
+                "CSV(s): " + ", ".join(sources))
 
     # Folder-per-class fallback: <root>/<split>/<class>/*.png etc.
     images, labels = [], []
@@ -142,20 +172,17 @@ class WordDataset(Dataset):
         return self.transform(image), self.labels[idx], str(self.images[idx])
 
 
-def build_transforms(img_size: int, train: bool):
+def build_transforms(img_h: int, img_w: int, train: bool):
+    steps: list = [transforms.Lambda(lambda im: letterbox(im, (img_h, img_w)))]
     if train:
-        return transforms.Compose([
-            transforms.Resize((img_size, img_size)),
-            transforms.RandomApply([transforms.RandomAffine(
-                degrees=8, translate=(0.05, 0.05), scale=(0.92, 1.08), shear=4)], p=0.6),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ])
-    return transforms.Compose([
-        transforms.Resize((img_size, img_size)),
+        steps.append(transforms.RandomApply([transforms.RandomAffine(
+            degrees=8, translate=(0.05, 0.05), scale=(0.92, 1.08),
+            shear=4, fill=255)], p=0.6))
+    steps.extend([
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])
+    return transforms.Compose(steps)
 
 
 def build_model(num_classes: int, device: torch.device) -> nn.Module:
@@ -197,7 +224,8 @@ def main() -> int:
     parser.add_argument("--output", default="/kaggle/working" if os.path.exists("/kaggle/working") else "models")
     parser.add_argument("--epochs", type=int, default=12)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--img-size", type=int, default=224)
+    parser.add_argument("--img-h", type=int, default=128)
+    parser.add_argument("--img-w", type=int, default=384)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--labels-kind", choices=("brand", "generic"), default="brand",
@@ -207,7 +235,7 @@ def main() -> int:
 
     seed_all(args.seed)
     root = find_input_root(args.input)
-    images, labels, source = collect_samples(root)
+    images, labels, source = collect_samples(root, args.labels_kind)
     print(f"Input root : {root}")
     print(f"Source     : {source}")
     print(f"Samples    : {len(images)}  Classes: {len(set(labels))}")
@@ -233,9 +261,12 @@ def main() -> int:
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
 
-    train_ds = WordDataset([images[i] for i in tr], [y[i] for i in tr], build_transforms(args.img_size, True))
-    val_ds = WordDataset([images[i] for i in va], [y[i] for i in va], build_transforms(args.img_size, False))
-    test_ds = WordDataset([images[i] for i in te], [y[i] for i in te], build_transforms(args.img_size, False))
+    train_ds = WordDataset([images[i] for i in tr], [y[i] for i in tr],
+                           build_transforms(args.img_h, args.img_w, True))
+    val_ds = WordDataset([images[i] for i in va], [y[i] for i in va],
+                         build_transforms(args.img_h, args.img_w, False))
+    test_ds = WordDataset([images[i] for i in te], [y[i] for i in te],
+                          build_transforms(args.img_h, args.img_w, False))
     workers = 2 if os.name != "nt" else 0
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=workers)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=workers)
@@ -283,9 +314,11 @@ def main() -> int:
     print(f"TEST ACCURACY: {test_acc:.4f} ({correct_total}/{len(rows)})")
 
     torch.save({"state_dict": model.state_dict(), "class_names": class_names,
-                "img_size": args.img_size, "arch": "efficientnet_b0"}, out / "rx_cnn.pt")
+                "img_size": [args.img_h, args.img_w], "arch": "efficientnet_b0"},
+               out / "rx_cnn.pt")
     (out / "labels.json").write_text(json.dumps(
-        {"class_names": class_names, "val_accuracy": round(best_val, 4),
+        {"arch": "efficientnet_b0", "img_size": [args.img_h, args.img_w],
+         "class_names": class_names, "val_accuracy": round(best_val, 4),
          "test_accuracy": round(test_acc, 4), "source": source,
          "train": len(tr), "val": len(va), "test": len(te),
          "labels_kind": args.labels_kind, "seed": args.seed},
@@ -298,6 +331,7 @@ def main() -> int:
     # Keep the exact environment visible to judges.
     (out / "training_summary.txt").write_text(
         f"source={source}\nsamples={len(images)}\nclasses={len(class_names)}\n"
+        f"img_size={args.img_h}x{args.img_w}\n"
         f"split={len(tr)}/{len(va)}/{len(te)}\nepochs={args.epochs}\nbatch={args.batch_size}\n"
         f"best_val_accuracy={best_val:.4f}\ntest_accuracy={test_acc:.4f}\n"
         f"torch={torch.__version__}\nseed={args.seed}\n", encoding="utf-8")
