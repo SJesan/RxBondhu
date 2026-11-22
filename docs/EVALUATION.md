@@ -95,15 +95,14 @@ the app**. The answer key was typed from the paper and then corrected by hand on
 22 Nov 2026 (six corrections: Renova 5→3 days, Loetril 3→6 months, Lorno
 12→21 days, Frenxit 2→1 month, Napa Rapid 3m→3 months, Flacort 6→10 mg).
 The photos and verified key stay local for privacy (`results/rx/` and
-`results/answer_key_verified.csv` are gitignored); only derived metrics are
-committed.
+`results/answer_key.csv` are gitignored); only derived metrics are committed.
 
 `gemini-2.5-flash` reached its free-tier limit of 20 requests/day, so the
 documented fallback **`gemini-3.5-flash-lite`** served all 10 images. Every
 image returned lines; no VLM errors were recorded.
 
 ```bash
-.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results\answer_key_verified.csv --images results\rx
+.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results\answer_key.csv --images results\rx
 ```
 
 Raw log: `results/handwritten_test_log.csv` · summary:
