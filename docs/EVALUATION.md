@@ -88,41 +88,58 @@ Live integration check on `images.jpg` (Amdocal / Eltroxin / Paricel / Vave):
 `word_count = 10`, `line_count = 2`, `Napa — 1+0+1` and `Maxpro — BD`.
 These are presentation/integration checks, **not** accuracy measurements.
 
-## 2. Handwritten prescription test (10–12 samples) — pending
+## 2. Handwritten prescription test (10 samples, 22 Nov 2026) — done
 
-Every row must be a fresh prescription handwritten by a volunteer, with an
-answer key. The runner `tools/evaluate_handwritten.py` calls the **same pipeline
-as the app** and writes `results/handwritten_test_log.csv`. Template answer key:
-`results/answer_key_template.csv`.
+Ten real-handwriting medicine-line crops were read with the **same pipeline as
+the app**. The answer key was typed from the paper and then corrected by hand on
+22 Nov 2026 (six corrections: Renova 5→3 days, Loetril 3→6 months, Lorno
+12→21 days, Frenxit 2→1 month, Napa Rapid 3m→3 months, Flacort 6→10 mg).
+The photos and verified key stay local for privacy (`results/rx/` and
+`results/answer_key_verified.csv` are gitignored); only derived metrics are
+committed.
+
+`gemini-2.5-flash` reached its free-tier limit of 20 requests/day, so the
+documented fallback **`gemini-3.5-flash-lite`** served all 10 images. Every
+image returned lines; no VLM errors were recorded.
 
 ```bash
-.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results\answer_key.csv --images results\rx
+.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results\answer_key_verified.csv --images results\rx
 ```
+
+Raw log: `results/handwritten_test_log.csv` · summary:
+`results/handwritten_evaluation_summary.json`.
 
 | Reader | Correct / total | Accuracy |
 |---|---|---|
-| CNN only | _fill after real test_ | _fill_ |
-| Gemini only | _fill after real test_ | _fill_ |
-| Combined (fusion) | _fill after real test_ | _fill_ |
-| Dose notation | _fill after real test_ | _fill_ |
+| CNN only (best crop per line) | 0 / 48 | 0.0% |
+| Gemini only (`3.5-flash-lite` fallback) | 24 / 48 | 50.0% |
+| Combined (fusion) | 2 / 48 | 4.2% |
+| Dose notation | 7 / 48 | 14.6% |
 
 Safety metrics (the numbers judges should probe first):
 
 | Metric | Definition | Target | Result |
 |---|---|---|---|
-| Unsafe-GREEN rate | wrong names shown GREEN ÷ all GREEN lines | **0** | _fill_ |
-| Catch rate | wrong readings flagged YELLOW/RED ÷ all wrong readings | high | _fill_ |
-| Over-flag rate | correct names shown RED ÷ all correct names | low | _fill_ |
+| Unsafe-GREEN rate | wrong names shown GREEN ÷ all GREEN lines | **0** | **0 wrong GREEN; 0 GREEN lines → rate n/a** |
+| Catch rate | wrong readings flagged YELLOW/RED ÷ all wrong readings | high | **1.0 (45/45)** |
+| Over-flag rate | correct names shown RED ÷ all correct names | low | **1.0 (2/2)** — conservative, see below |
+
+**Honest reading.** Gemini alone found half of the 48 brand lines. Fusion is
+deliberately stricter: most of these brands are outside our 18-brand verified
+lexicon, so the displayed name comes from Gemini but the badge stays 🔴 RED.
+That is why combined accuracy is low and over-flag rate is 1.0 — the system
+refuses to auto-approve unverified names. Every wrong combined reading was
+flagged (catch rate 1.0), and **not a single wrong name was shown GREEN**.
 
 **Domain-gap note (honest answer to the 0.9590 question).** The 0.9590 figure is
 accuracy on **cropped word images from the public dataset**, not on real
 prescription photos. On our phone-photo smoke test, `Napa` scored 0.411 and
 `Maxpro` 0.076 CNN confidence. `Maxpro` **is** one of our 78 classes
 (`models/labels.json`); the low score is a photo-vs-clean-dataset gap, not a
-missing class. That is why fusion shows YELLOW and requires confirmation, and
-why the real-handwriting table above is reported separately.
+missing class. That is why real photos usually produce RED and require human
+confirmation, and why the real-handwriting table above is reported separately.
 
-Results must stay blank until the real test is run. No number is invented.
+No number in this table is invented; all values come from the linked log.
 
 ## 3. Safety checks demonstrated
 
@@ -130,7 +147,9 @@ Results must stay blank until the real test is run. No number is invented.
 |---|---|
 | Duplicate generic | Napa + Ace → warning (both Paracetamol) |
 | Unknown/invented name | `Zzqqx` rejected by lexicon (unit test) |
+| Unknown brand Gemini read | Amdocal / Eltroxin / Paricel → name shown, badge RED |
 | Low confidence | RED badge + "confirm with pharmacist" |
+| Line-level reading | One review row per medicine line, not per word fragment |
 | Human-in-the-loop | No schedule until Review button is pressed |
 
 ## 4. Reproduce locally
@@ -151,13 +170,14 @@ tests\test_localization.py
 
 `rxbondhu/preprocess.py` provides switchable shadow removal → CLAHE → deskew →
 auto-crop. It is **off by default** until measured on real handwriting. The
-external 200-image localization ablation is already reported in section 1c;
-the name/dose ablation below still needs the 12 handwritten samples. Run
-`tools/evaluate_handwritten.py --preprocess` and fill this table only from real
-output:
+external 200-image localization ablation is already reported in section 1c.
+The name/dose ablation below uses the 10 verified handwritten samples; only
+the default variant was measured so far (no extra Gemini quota was spent on
+preprocessed variants). Run `tools/evaluate_handwritten.py --preprocess` to add
+the other rows later — fill them only from real output:
 
 | Variant | CNN name acc. | Combined acc. | Unsafe-GREEN | Notes |
 |---|---|---|---|---|
-| none (default) | _fill_ | _fill_ | _fill_ | baseline |
+| none (default) | 0.0% | 4.2% | 0 | measured 22 Nov 2026, 10 samples |
 | shadow + CLAHE | _fill_ | _fill_ | _fill_ | |
 | + deskew + auto-crop (all) | _fill_ | _fill_ | _fill_ | |

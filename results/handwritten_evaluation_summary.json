@@ -1,0 +1,26 @@
+{
+  "samples": 10,
+  "cnn_name_accuracy": 0.0,
+  "gemini_name_accuracy": 0.5,
+  "combined_name_accuracy": 0.0417,
+  "dose_accuracy": 0.1458,
+  "unsafe_error_rate": null,
+  "green_lines": 0,
+  "catch_rate": 1.0,
+  "overflag_rate": 1.0,
+  "raw_totals": {
+    "cnn_correct": 0,
+    "cnn_total": 48,
+    "vlm_correct": 24,
+    "vlm_total": 48,
+    "combined_correct": 2,
+    "combined_total": 48,
+    "dose_correct": 7,
+    "dose_total": 48,
+    "unsafe_green": 0,
+    "wrong_combined": 45,
+    "caught_wrong": 45,
+    "overflagged_correct": 2
+  },
+  "note": "Automated review uses fusion output without human correction. Dataset word-crop test accuracy (0.9590) is a separate number."
+}
