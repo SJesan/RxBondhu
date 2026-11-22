@@ -29,17 +29,38 @@ sys.path.insert(0, str(ROOT))
 from PIL import Image  # noqa: E402
 
 from rxbondhu import pipeline, vlm  # noqa: E402
+from rxbondhu.fusion import clean_display_name  # noqa: E402
 from rxbondhu.lexicon import normalise_name  # noqa: E402
 
 LOG_COLUMNS = [
-    "image", "true_brands", "cnn_preds", "vlm_preds", "combined_preds",
+    "image", "true_brands", "cnn_preds", "vlm_preds", "vlm2_preds", "combined_preds",
     "combined_badges", "cnn_correct", "cnn_total", "vlm_correct", "vlm_total",
-    "combined_correct", "combined_total", "dose_correct", "dose_total",
+    "vlm2_correct", "vlm2_total", "combined_correct", "combined_total",
+    "default_correct", "lines_shown", "unverified_lines",
+    "dose_correct", "dose_total",
     "unsafe_green", "wrong_combined", "caught_wrong", "overflagged_correct", "notes",
 ]
 
+SCORE_KEYS = (
+    "cnn_correct", "cnn_total", "vlm_correct", "vlm_total", "vlm2_correct", "vlm2_total",
+    "combined_correct", "combined_total", "default_correct", "lines_shown",
+    "unverified_lines", "dose_correct", "dose_total", "unsafe_green",
+    "wrong_combined", "caught_wrong", "overflagged_correct",
+)
+
 
 def norm(text: str) -> str:
+    """Canonical brand name: drop form words (Syp./Supp./Inj.), strengths, punctuation.
+
+    Without this, the answer key's "Syp. Napa (120mg/5ml)" did not compare equal
+    to the app's correct "Napa" default, creating four false 'unsafe GREEN'
+    findings in the first v2 run.
+    """
+    return normalise_name(clean_display_name(text)).lower()
+
+
+def dose_norm(text: str) -> str:
+    """Dose text keeps its digits and '+' signs; only punctuation is flattened."""
     return normalise_name(text).lower()
 
 
@@ -68,6 +89,7 @@ def run_one(path: str, preprocess: bool, skip_vlm: bool) -> dict:
     # Line-level readings, matching the app's screen 2 exactly.
     cnn_preds = analysis.get("line_cnn_preds", [])
     vlm_preds = [line.get("medicine", "") for line in analysis.get("vlm_lines", [])]
+    vlm2_preds = [line.get("medicine", "") for line in analysis.get("vlm2_lines", [])]
     items = analysis["items"]
     combined = [(it.get("name") or "", it.get("colour", "RED"),
                  it.get("dose_text") or "") for it in items]
@@ -75,6 +97,7 @@ def run_one(path: str, preprocess: bool, skip_vlm: bool) -> dict:
     return {
         "cnn_preds": cnn_preds,
         "vlm_preds": vlm_preds,
+        "vlm2_preds": vlm2_preds,
         "combined": combined,
         "vlm_error": analysis.get("vlm_error", ""),
         "word_count": analysis.get("word_count", 0),
@@ -89,6 +112,7 @@ def evaluate_row(answer: dict, result: dict) -> dict:
 
     cnn_norms = [norm(x) for x in result["cnn_preds"]]
     vlm_norms = [norm(x) for x in result["vlm_preds"]]
+    vlm2_norms = [norm(x) for x in result.get("vlm2_preds", [])]
     combined_norms = [norm(name) for name, _, _ in result["combined"]]
 
     def hits(preds):
@@ -96,7 +120,10 @@ def evaluate_row(answer: dict, result: dict) -> dict:
 
     cnn_ok = hits(cnn_norms)
     vlm_ok = hits(vlm_norms)
+    vlm2_ok = hits(vlm2_norms)
     combined_ok = hits(combined_norms)
+    # Prefilled review suggestions judged independently of their badge colour.
+    default_ok = sum(1 for value in combined_norms if value in true_norms)
 
     dose_ok = 0
     dose_total = 0
@@ -105,7 +132,7 @@ def evaluate_row(answer: dict, result: dict) -> dict:
             continue
         dose_total += 1
         got = result["combined"][i][2] if i < len(result["combined"]) else ""
-        if norm(want) == norm(got) or norm(want) in norm(got):
+        if dose_norm(want) == dose_norm(got) or dose_norm(want) in dose_norm(got):
             dose_ok += 1
 
     unsafe_green = sum(
@@ -128,7 +155,12 @@ def evaluate_row(answer: dict, result: dict) -> dict:
     return {
         "cnn_correct": cnn_ok, "cnn_total": len(true_norms),
         "vlm_correct": vlm_ok, "vlm_total": len(true_norms),
+        "vlm2_correct": vlm2_ok, "vlm2_total": len(true_norms),
         "combined_correct": combined_ok, "combined_total": len(true_norms),
+        "default_correct": default_ok,
+        "lines_shown": len(result["combined"]),
+        "unverified_lines": sum(1 for _, colour, _ in result["combined"]
+                                if colour == "UNVERIFIED"),
         "dose_correct": dose_ok, "dose_total": dose_total,
         "unsafe_green": unsafe_green, "wrong_combined": len(wrong),
         "caught_wrong": caught, "overflagged_correct": overflagged,
@@ -162,7 +194,7 @@ def main() -> int:
             print(f"WARNING: Gemini unavailable ({why}); continuing CNN-only.")
 
     rows = []
-    totals = dict.fromkeys(LOG_COLUMNS[6:-1], 0)
+    totals = dict.fromkeys(SCORE_KEYS, 0)
     for answer in answers:
         path = resolve_image(answer["image"], args.images)
         if not os.path.exists(path):
@@ -174,6 +206,7 @@ def main() -> int:
             "true_brands": answer.get("true_brands", ""),
             "cnn_preds": "|".join(result["cnn_preds"]),
             "vlm_preds": "|".join(result["vlm_preds"]),
+            "vlm2_preds": "|".join(result["vlm2_preds"]),
             "combined_preds": "|".join(name for name, _, _ in result["combined"]),
             "combined_badges": "|".join(colour for _, colour, _ in result["combined"]),
             **scored,
@@ -198,8 +231,12 @@ def main() -> int:
     summary = {
         "samples": len(rows),
         "cnn_name_accuracy": rate(totals["cnn_correct"], totals["cnn_total"]),
-        "gemini_name_accuracy": rate(totals["vlm_correct"], totals["vlm_total"]),
+        "reader1_name_accuracy": rate(totals["vlm_correct"], totals["vlm_total"]),
+        "gemini_name_accuracy": rate(totals["vlm_correct"], totals["vlm_total"]),  # v1 alias
+        "reader2_name_accuracy": rate(totals["vlm2_correct"], totals["vlm2_total"]),
         "combined_name_accuracy": rate(totals["combined_correct"], totals["combined_total"]),
+        "default_correct_rate": rate(totals["default_correct"], totals["lines_shown"]),
+        "unverified_lines": totals["unverified_lines"],
         "dose_accuracy": rate(totals["dose_correct"], totals["dose_total"]),
         "unsafe_error_rate": rate(totals["unsafe_green"], green_total),
         "green_lines": green_total,

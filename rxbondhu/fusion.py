@@ -28,7 +28,8 @@ def clean_display_name(text: str) -> str:
     value = re.sub(r"\([^)]*\)", " ", value)
     value = re.sub(r"\b\d+(?:\.\d+)?\s*(mg|mcg|ml|gm|iu|%|g)?\b", " ", value,
                    flags=re.IGNORECASE)
-    value = re.sub(r"[^\w+\-\s]", " ", value, flags=re.UNICODE)
+    # Bangla vowel signs are combining marks, not \w — keep the whole 0980–09FF block.
+    value = re.sub(r"[^\w+\-\s\u0980-\u09ff]", " ", value, flags=re.UNICODE)
     return re.sub(r"\s+", " ", value).strip(" -")
 
 

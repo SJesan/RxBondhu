@@ -20,6 +20,21 @@ class TestEvaluation(unittest.TestCase):
         self.assertEqual(split_pipe("Napa | Maxpro |"), ["Napa", "Maxpro"])
         self.assertEqual(norm("M-Kast"), "m kast")
         self.assertEqual(norm("নাপা"), "নাপা")
+        self.assertEqual(norm("Syp. Napa (120mg/5ml)"), "napa")
+        self.assertEqual(norm("Supp. Napa (250mg)"), "napa")
+        self.assertEqual(norm("INJ. CEFTRIAXONE (1gm/10ml)"), "ceftriaxone")
+
+    def test_formulation_variant_is_not_counted_as_unsafe_green(self):
+        answer = {"true_brands": "Syp. Napa (120mg/5ml)|Supp. Napa (250mg)",
+                  "true_dose": ""}
+        result = {
+            "cnn_preds": [], "vlm_preds": [], "vlm2_preds": [],
+            "combined": [("Napa", "GREEN", "")],
+            "vlm_error": "", "word_count": 1,
+        }
+        score = evaluate_row(answer, result)
+        self.assertEqual(score["combined_correct"], 1)
+        self.assertEqual(score["unsafe_green"], 0)
 
     def test_green_wrong_is_unsafe_error(self):
         answer = {"true_brands": "Napa|Maxpro", "true_dose": "1+0+1|BD"}

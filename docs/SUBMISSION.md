@@ -6,7 +6,7 @@
 
 **Short description (≤150 words):**
 
-> RxBondhu turns a handwritten Bangladeshi prescription photo into a clear Bangla morning/noon/night schedule with audio. Two independent Gemini models read the photo, while my own EfficientNet-B0 handwriting CNN (trained on 4,680 public word images; held-out test 95.90%, 748/780) acts as a safety veto. Explainable GREEN / YELLOW / UNVERIFIED / RED badges, a verified brand–generic lexicon and duplicate-generic warnings keep the user in control: every line must be confirmed before a schedule appears. Built solo in Python and Streamlit with a public repo, 65 automated tests, a free live demo and honest evaluation logs. Calendar links, .ics and prepared WhatsApp text are included. Reading aid only; not medical advice.
+> RxBondhu turns a handwritten Bangladeshi prescription photo into a clear Bangla morning/noon/night schedule with audio. Two independent Gemini models read the photo, while my own EfficientNet-B0 handwriting CNN (trained on 4,680 public word images; held-out test 95.90%, 748/780) acts as a safety veto. Explainable GREEN / YELLOW / UNVERIFIED / RED badges, a verified brand–generic lexicon and duplicate-generic warnings keep the user in control: every line must be confirmed before a schedule appears. Built solo in Python and Streamlit with a public repo, 68 automated tests, a free live demo and honest evaluation logs. Calendar links, .ics and prepared WhatsApp text are included. Reading aid only; not medical advice.
 
 **Word count of description:** 109 (limit 150).
 

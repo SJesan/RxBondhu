@@ -208,6 +208,35 @@ segmentation step breaks handwriting into fragments before the CNN sees it;
 this is a measured pipeline gap, not a claim that the 0.9590 word-crop number
 transfers to photos. Contact sheets are in gitignored `results/crop_dump/`.
 
+## 2c. v2 end-to-end on the same 10 images (23 Nov 2026)
+
+Full pipeline (`tools/evaluate_handwritten.py`), two Gemini readers + CNN veto +
+lexicon + fusion, no human correction applied. Logs:
+`results/handwritten_v2_test_log.csv` and `results/handwritten_v2_summary.json`.
+
+| Metric | v1 (one reader) | v2 (two readers) |
+|---|---|---|
+| CNN name accuracy (real photo) | 0/48 | 0/47 |
+| Reader 1 (`3.5-flash-lite`) | 24/48 (50.0%) | 25/47 (53.2%) |
+| Reader 2 (`3.1-flash-lite`) | — | **29/47 (61.7%)** |
+| Combined name shown | 2/48 (4.2%) | 20/47 (42.6%) |
+| Default-correct rate (shown lines) | — | 21/48 (43.8%) |
+| Dose accuracy | 7/48 (14.6%) | 6/48 (12.5%) |
+| Unverified lines | — | 33/48 |
+| Unsafe GREEN | 0 | **0 of 5 GREEN lines** |
+| Catch rate (wrong lines not GREEN) | 1.0 | 1.0 |
+| Over-flag rate (correct lines shown RED) | 1.0 | 0.0 |
+
+The totals are 47 rather than 48 because the answer key's `Syp. Napa` and
+`Supp. Napa` normalise to the same brand and are counted once as a set; 48 review
+lines were still shown. The first v2 run appeared to show 4 unsafe GREEN lines;
+that was a **scorer bug**, not a fusion bug — `norm()` did not strip `Syp.`,
+`Supp.` or strength text, so the correct `Napa` default did not compare equal to
+`Syp. Napa (120mg/5ml)`. After fixing `norm()` (and preserving Bangla vowel
+marks in `clean_display_name()`) the unsafe-GREEN count is 0. The safety
+invariant itself is unchanged: GREEN only when both readers map to the same
+verified brand.
+
 ## 3. Safety checks demonstrated
 
 | Check | How shown in demo |
@@ -222,16 +251,13 @@ transfers to photos. Contact sheets are in gitignored `results/crop_dump/`.
 ## 4. Reproduce locally
 
 ```bash
-.\venv\Scripts\python.exe tests\test_core.py
-.\venv\Scripts\python.exe tests\test_pipeline.py
-.\venv\Scripts\python.exe tests\test_segmentation.py
-.\venv\Scripts\python.exe tests\test_evaluation.py
-.\venv\Scripts\python.exe tests\test_reminders.py
-.\venv\Scripts\python.exe tests\test_preprocess.py
-tests\test_localization.py
+.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 68 tests, no network
 .\venv\Scripts\python.exe tools\verify_model.py
 .\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
 ```
+
+The full v2 real-photo run itself needs a `GEMINI_API_KEY` and the local answer
+key: `.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results/answer_key.csv --images results/rx --out results/handwritten_v2_test_log.csv --summary results/handwritten_v2_summary.json`.
 
 ## 5. Optional preprocessing ablation — pending
 
@@ -245,6 +271,6 @@ the other rows later — fill them only from real output:
 
 | Variant | CNN name acc. | Combined acc. | Unsafe-GREEN | Notes |
 |---|---|---|---|---|
-| none (default) | 0.0% | 4.2% | 0 | measured 22 Nov 2026, 10 samples |
+| none (default) | 0.0% | 42.6% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers (v1 was 4.2%) |
 | shadow + CLAHE | _fill_ | _fill_ | _fill_ | |
 | + deskew + auto-crop (all) | _fill_ | _fill_ | _fill_ | |

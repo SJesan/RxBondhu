@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rxbondhu.dose_parser import parse, to_bangla_summary  # noqa: E402
 from rxbondhu.lexicon import load_brands, match_brand, normalise_name, suggest_brands  # noqa: E402
 from rxbondhu.safety import duplicate_warning, has_red  # noqa: E402
-from rxbondhu.fusion import fuse  # noqa: E402
+from rxbondhu.fusion import clean_display_name, fuse  # noqa: E402
 
 
 class TestDoseParser(unittest.TestCase):
@@ -79,6 +79,14 @@ class TestLexicon(unittest.TestCase):
 
     def test_normalise_strips_dosage_words(self):
         self.assertEqual(normalise_name("TAB. NAPA 500mg"), "napa 500")
+
+
+class TestDisplayNames(unittest.TestCase):
+    def test_bangla_survives_clean_display_name(self):
+        self.assertEqual(clean_display_name("নাপা"), "নাপা")
+
+    def test_form_and_strength_are_stripped(self):
+        self.assertEqual(clean_display_name("Syp. Napa (120mg/5ml)"), "Napa")
 
 
 class TestFusion(unittest.TestCase):
