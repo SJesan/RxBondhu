@@ -79,6 +79,28 @@ def colour_badge(colour: str) -> str:
 
 def screen_1():
     ui.step_header(1, "১. ছবি দিন", "Upload a prescription photo or take one, then drag a box around the medicine lines only.")
+    with st.expander("🧪 Our CNN — proof demo (single word crop)"):
+        st.caption(
+            "Our own EfficientNet-B0, fine-tuned here: held-out **word-crop** accuracy "
+            "0.9590 (748/780). That is a clean word image, NOT a whole prescription photo — "
+            "real-photo results are measured separately and reported honestly."
+        )
+        word_file = st.file_uploader("Upload one clear medicine word crop",
+                                     type=["jpg", "jpeg", "png", "webp"], key="word_proof")
+        if word_file:
+            word_image = Image.open(word_file).convert("RGB")
+            st.image(word_image, caption="CNN input", width=180)
+            if st.button("Read this word with our CNN"):
+                prediction = recognizer.predict_word(word_image, top_k=3)
+                if prediction["top"]:
+                    st.success(
+                        f"Top: **{prediction['brand']}** ({prediction['confidence']:.2f})"
+                    )
+                    st.caption("Other guesses: " + ", ".join(
+                        f"{h['brand']} {h['confidence']:.2f}" for h in prediction["top"][1:]
+                    ))
+                else:
+                    st.error("CNN checkpoint not available — nothing was guessed.")
     tab_upload, tab_camera = st.tabs(["Upload photo", "Use camera"])
     with tab_upload:
         uploaded = st.file_uploader("Prescription image", type=["jpg", "jpeg", "png", "webp"])
@@ -345,7 +367,8 @@ def sidebar():
                               index=choices.index(st.session_state.font_scale),
                               key="font_picker")
         st.session_state.font_scale = chosen
-        st.caption("Built fresh for CoU AI Hackathon 2026. AI tools: OpenCode + Google Gemini.")
+        st.caption("Built fresh for CoU AI Hackathon 2026. AI tools: OpenCode + "
+                   "Google Gemini (2 readers) + our own CNN. Groq was evaluated but not shipped.")
 
 
 def main():

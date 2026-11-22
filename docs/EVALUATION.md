@@ -80,8 +80,8 @@ A full-page phone photo previously produced one review row per segmented word
 (30 rows, mostly `Az`) because word crops were paired by index with Gemini's
 four lines. `pipeline.analyse()` now produces **one row per medicine line**;
 word crops still feed our CNN, and the highest-confidence CNN reading inside a
-line is kept. When that CNN class is outside the verified lexicon, the name
-shown comes from Gemini while the badge stays 🔴 RED — never GREEN.
+line is kept. In v2 that case is a 🔍 UNVERIFIED badge: the reader's name is an
+editable default and is never GREEN (v1 used RED; both refused auto-approval).
 
 Live integration check on `images.jpg` (Amdocal / Eltroxin / Paricel / Vave):
 `word_count = 30`, `line_count = 4`, four correctly named rows, all RED, read by
@@ -148,13 +148,73 @@ confirmation, and why the real-handwriting table above is reported separately.
 
 No number in this table is invented; all values come from the linked log.
 
+## 2b. Second-reader bake-off and v2 gates (22–23 Nov 2026)
+
+Same 10 real images and 48 verified lines as §2. Every number below comes from
+`tools/bakeoff_groq.py --reader <gemini|groq>` using the local, gitignored answer
+key; the per-image logs stay local for privacy and only derived numbers are
+committed. Gate (locked before running): **valid JSON ≥90%, mean <10 s/image,
+name accuracy ≥30%/48 lines**.
+
+| Reader / model | Valid JSON | Name correct | Dose correct | Mean time | Images with API error | Gate |
+|---|---|---|---|---|---|---|
+| Gemini `gemini-2.5-flash` | 4/10 (40%) | 6/48 (12.5%) | 0/48 | 6.8 s | 6 (429 quota) | ❌ |
+| Gemini `gemini-3.5-flash-lite` (v1 fallback) | 10/10 (100%) | **23/48 (47.9%)** | 4/48 (8.3%) | 10.8 s | 0 | latency only |
+| Gemini `gemini-3.1-flash-lite` | 10/10 (100%) | **24/48 (50.0%)** | 5/48 (10.4%) | 4.7 s | 0 | ✅ **shipped as reader 2** |
+| Groq `qwen/qwen3.8-27b` | 10/10 (100%) | 10/48 (20.8%) | 2/48 (4.2%) | 16.4 s¹ | 0 | ❌ **not shipped** |
+
+¹ Groq inference itself was ~1–2 s; 16.4 s includes honest 20 s backoffs for
+HTTP 429 (7,000 input tokens/minute on the free tier). It still failed the
+name-accuracy gate, so no Groq key is needed to run the app.
+
+**Decision:** two independent Gemini models are the photo readers.
+`gemini-3.5-flash-lite` is reader 1, `gemini-3.1-flash-lite` is reader 2, and our
+EfficientNet-B0 stays as a safety veto. If reader 1 is offline, reader 2's lines
+are used for the row count but are **never copied into both readers' opinions** —
+a unit test proves this cannot fabricate a GREEN.
+
+### Prompt experiment (reverted)
+
+Adding the 18-brand list, dose-notation examples and an explicit "?" rule to the
+reader prompt made names **worse**: `3.1-flash-lite` 24/48 → 18/48, and
+out-of-list lines wrongly promoted to a listed brand 4/48 → 8/48 for
+`3.5-flash-lite`. The gate rejected it; the plain prompt remains the default
+(`RX_VLM_PROMPT_HINTS=0`). Raw logs: `results/hints_lite_log.csv`,
+`results/hints_31_log.csv` (local only).
+
+### RxFusion char-CNN (experiment, not shipped)
+
+A small char-CNN was trained on **synthetic noisy spellings of verified brand
+names only** (seed 42, 3,344 train / 836 test pairs; no image or answer-key line
+used for training). Against the RapidFuzz baseline:
+
+| Slice | RapidFuzz | char-CNN |
+|---|---|---|
+| Held-out synthetic pairs | 449/836 (53.7%) | **832/836 (99.5%)** |
+| Read-only real-line probe (4 reader logs × 48 lines) | 11/192 (5.7%) | 11/192 (5.7%) |
+
+The real-line probe ties because most truth brands are outside the 18-row
+verified lexicon; the gate required a win on **both** slices, so it failed.
+The rule-based fusion stays in the app; the checkpoint is gitignored and the
+metrics are committed at `results/rx_fusion_metrics.json`. Training script:
+`tools/train_rx_fusion.py`.
+
+### Crop diagnosis (why the CNN scored 0/48 on real photos)
+
+`tools/dump_crops.py` saved every word/line crop for the 10 local images:
+**549 word crops for 48 real lines** (~11 crops per line), many only 14–20 px
+fragments, repeated boxes, and at least one 498×1557 whole-column blob. The
+segmentation step breaks handwriting into fragments before the CNN sees it;
+this is a measured pipeline gap, not a claim that the 0.9590 word-crop number
+transfers to photos. Contact sheets are in gitignored `results/crop_dump/`.
+
 ## 3. Safety checks demonstrated
 
 | Check | How shown in demo |
 |---|---|
 | Duplicate generic | Napa + Ace → warning (both Paracetamol) |
 | Unknown/invented name | `Zzqqx` rejected by lexicon (unit test) |
-| Unknown brand Gemini read | Amdocal / Eltroxin / Paricel → name shown, badge RED |
+| Unknown brand a reader saw | Amdocal / Eltroxin / Paricel → editable name, badge UNVERIFIED (never GREEN) |
 | Low confidence | RED badge + "confirm with pharmacist" |
 | Line-level reading | One review row per medicine line, not per word fragment |
 | Human-in-the-loop | No schedule until Review button is pressed |
