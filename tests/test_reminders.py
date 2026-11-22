@@ -16,7 +16,7 @@ class TestReminders(unittest.TestCase):
     def test_events_and_rrule(self):
         schedule = build_schedule([
             {"name": "Napa", "generic": "Paracetamol", "dose": "1+0+1 7 days"},
-            {"name": "Maxpro", "generic": "Meloxicam", "dose": "BD 5 days"},
+            {"name": "Maxpro", "generic": "Esomeprazole", "dose": "BD 5 days"},
         ])
         result = make_ics(schedule, start_date=date(2026, 11, 24))
         self.assertEqual(len(result["events"]), 4)  # 2 slots + 2 slots

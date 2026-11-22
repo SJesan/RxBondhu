@@ -34,7 +34,7 @@ RxBondhu reads the medicine area with **two AI models**, checks every name again
 1. **Photo + crop** — upload or use the phone rear camera; default crop covers 92% of the photo with a coverage slider and an "already cropped" option.
 2. **Find lines** — OpenCV groups handwritten words into lines; each review row is one medicine line.
 3. **Three readings** — two independent Gemini models read the photo; our own fine-tuned CNN reads word crops as a safety veto and proof of an own model.
-4. **Real-brand matching** — fuzzy matching (RapidFuzz) against a verified brand→generic list, so invented names are blocked.
+4. **Real-brand matching** — fuzzy matching (RapidFuzz) against a 28-row verified brand→generic list (10 box/pharmacy-checked on 23 Nov, with `checked_by`/`source` in `data/manual_brands.csv`), so invented names are blocked.
 5. **Fusion colours** — GREEN = both readers agree on a verified brand; YELLOW = one reader confident; 🔍 UNVERIFIED = readable but not in the checked list (editable, never GREEN); RED = direct disagreement / low confidence / user flag.
 6. **Review screen** — user confirms/fixes every name and dose. Nothing becomes a schedule before this.
 7. **Dose parser** — `1+0+1`, `BD`, `TDS`, `HS`, Bangla dose notes → schedule.

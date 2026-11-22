@@ -128,8 +128,9 @@ Safety metrics (the numbers judges should probe first):
 | Over-flag rate | correct names shown RED ÷ all correct names | low | **1.0 (2/2)** — conservative, see below |
 
 **Honest reading.** Gemini alone found half of the 48 brand lines. Fusion is
-deliberately stricter: most of these brands are outside our 18-brand verified
-lexicon, so the displayed name comes from Gemini but the badge stays 🔴 RED.
+deliberately stricter: most of these brands were outside the then-18-brand
+verified lexicon (now 28 after the 23 Nov box check), so the displayed name came
+from Gemini but the badge stayed 🔴 RED.
 That is why combined accuracy is low and over-flag rate is 1.0 — the system
 refuses to auto-approve unverified names. Every wrong combined reading was
 flagged (catch rate 1.0), and **not a single wrong name was shown GREEN**.
@@ -217,15 +218,21 @@ lexicon + fusion, no human correction applied. Logs:
 | Metric | v1 (one reader) | v2 (two readers) |
 |---|---|---|
 | CNN name accuracy (real photo) | 0/48 | 0/47 |
-| Reader 1 (`3.5-flash-lite`) | 24/48 (50.0%) | 25/47 (53.2%) |
-| Reader 2 (`3.1-flash-lite`) | — | **29/47 (61.7%)** |
-| Combined name shown | 2/48 (4.2%) | 20/47 (42.6%) |
-| Default-correct rate (shown lines) | — | 21/48 (43.8%) |
-| Dose accuracy | 7/48 (14.6%) | 6/48 (12.5%) |
-| Unverified lines | — | 33/48 |
-| Unsafe GREEN | 0 | **0 of 5 GREEN lines** |
+| Reader 1 (`3.5-flash-lite`) | 24/48 (50.0%) | 28/47 (59.6%) |
+| Reader 2 (`3.1-flash-lite`) | — | **28/47 (59.6%)** |
+| Combined name shown | 2/48 (4.2%) | 23/47 (48.9%) |
+| Default-correct rate (shown lines) | — | 24/48 (50.0%) |
+| Dose accuracy | 7/48 (14.6%) | 9/48 (18.8%) |
+| Unverified lines | — | 31/48 |
+| Unsafe GREEN | 0 | **0 of 4 GREEN lines** |
 | Catch rate (wrong lines not GREEN) | 1.0 | 1.0 |
-| Over-flag rate (correct lines shown RED) | 1.0 | 0.0 |
+| Over-flag rate (correct lines shown RED) | 1.0 | 0.0435 (1 line) |
+
+**Lexicon provenance (23 Nov 2026):** ten rows were checked against medicine
+boxes / a pharmacist and added to `data/manual_brands.csv` with `checked_by` and
+`source`; the verified lexicon now has 28 rows. That check also corrected
+`Maxpro` from the old `Meloxicam` label to **Esomeprazole**. These are brand →
+generic identity facts, not dose advice.
 
 The totals are 47 rather than 48 because the answer key's `Syp. Napa` and
 `Supp. Napa` normalise to the same brand and are counted once as a set; 48 review
@@ -271,6 +278,6 @@ the other rows later — fill them only from real output:
 
 | Variant | CNN name acc. | Combined acc. | Unsafe-GREEN | Notes |
 |---|---|---|---|---|
-| none (default) | 0.0% | 42.6% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers (v1 was 4.2%) |
+| none (default) | 0.0% | 48.9% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers + 28 verified brands (v1 was 4.2%) |
 | shadow + CLAHE | _fill_ | _fill_ | _fill_ | |
 | + deskew + auto-crop (all) | _fill_ | _fill_ | _fill_ | |

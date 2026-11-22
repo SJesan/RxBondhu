@@ -69,13 +69,20 @@ class TestLexicon(unittest.TestCase):
     def test_invented_name_rejected(self):
         self.assertIsNone(match_brand("Zzqqx", self.brands))
 
-    def test_unverified_row_not_used(self):
+    def test_box_verified_rows_are_used_with_provenance(self):
         with open("data/manual_brands.csv", "r", encoding="utf-8-sig", newline="") as fh:
             rows = list(csv.DictReader(fh))
-        maxpro_rows = [r for r in rows if r["brand"].strip().lower() == "maxpro"]
-        self.assertTrue(all(r["verified"].strip().lower() != "yes" for r in maxpro_rows))
-        # Maxpro still comes from the verified seed list.
-        self.assertEqual(match_brand("Maxpro", self.brands)["brand"], "Maxpro")
+        self.assertTrue(all(r["verified"].strip().lower() == "yes" for r in rows))
+        self.assertTrue(all(r["checked_by"].strip() for r in rows))
+        wanted = {"Seclo": "Omeprazole", "Sergel": "Esomeprazole",
+                  "Fexo": "Fexofenadine", "Monas": "Montelukast",
+                  "Filmet": "Metronidazole", "Zimax": "Azithromycin"}
+        for brand, generic in wanted.items():
+            hit = match_brand(brand, self.brands)
+            self.assertEqual(hit["generic"], generic)
+            self.assertIn("box", hit["source"])
+        # The old Meloxicam label was corrected by the box/pharmacy check.
+        self.assertEqual(match_brand("Maxpro", self.brands)["generic"], "Esomeprazole")
 
     def test_normalise_strips_dosage_words(self):
         self.assertEqual(normalise_name("TAB. NAPA 500mg"), "napa 500")
@@ -168,7 +175,7 @@ class TestSafety(unittest.TestCase):
     def test_no_duplicate_for_different_generics(self):
         meds = [
             {"name": "Napa", "generic": "Paracetamol"},
-            {"name": "Maxpro", "generic": "Meloxicam"},
+            {"name": "Maxpro", "generic": "Esomeprazole"},
         ]
         self.assertEqual(duplicate_warning(meds), [])
 

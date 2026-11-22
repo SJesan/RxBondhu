@@ -30,7 +30,10 @@
 - [x] Certificate name: `M. M. Sadikul Islam` (confirmed 22 Nov)
 - [x] Venue and date from official website + rule book (see above)
 - [ ] Exact reporting/check-in time from organiser email or helpline
+- [x] Organiser GitHub account form submitted (confirmed 23 Nov)
 - [x] Real-handwriting table filled from 10 samples / 48 lines (no invented numbers) — see [`docs/EVALUATION.md`](EVALUATION.md) and [`docs/HANDWRITTEN_TEST_GUIDE.md`](HANDWRITTEN_TEST_GUIDE.md)
 - [ ] GitHub Actions badge green on README after the final v2 push (check the latest run)
-- [ ] Backup video recorded by **Rakin** (≤3 min, unlisted)
+- [ ] Backup video recorded by **Rakin** (≤3 min, unlisted — still pending 23 Nov)
+- [ ] Rear-camera tab tested on a real phone (not yet tested; upload fallback remains)
+- [ ] Fresh Gemini key in Streamlit Secrets (owner chose to keep the existing key — accepted risk)
 - [ ] Submit at least 10 minutes early

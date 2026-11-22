@@ -25,7 +25,8 @@ SEED_BRANDS = [
     {"brand": "Ace", "generic": "Paracetamol", "verified": True},
     {"brand": "Calpol", "generic": "Paracetamol", "verified": True},
     {"brand": "Panadol", "generic": "Paracetamol", "verified": True},
-    {"brand": "Maxpro", "generic": "Meloxicam", "verified": True},
+    # Box/pharmacy check on 23 Nov 2026 corrected this from an old Meloxicam label.
+    {"brand": "Maxpro", "generic": "Esomeprazole", "verified": True},
     {"brand": "Melonex", "generic": "Meloxicam", "verified": True},
     {"brand": "Brufen", "generic": "Ibuprofen", "verified": True},
     {"brand": "Voveran", "generic": "Diclofenac", "verified": True},
@@ -55,7 +56,11 @@ def normalise_name(text: str) -> str:
 
 def load_brands(path: str | None = None) -> list[dict]:
     """Return verified brands from the seed list plus an optional CSV."""
-    brands = [dict(b) for b in SEED_BRANDS if b["verified"]]
+    brands = [
+        dict(b, source=b.get("source", "seed verified list"),
+             checked_by=b.get("checked_by", ""))
+        for b in SEED_BRANDS if b["verified"]
+    ]
     path = path or os.path.join("data", "manual_brands.csv")
     if path and os.path.exists(path):
         with open(path, "r", encoding="utf-8-sig", newline="") as fh:
@@ -64,7 +69,11 @@ def load_brands(path: str | None = None) -> list[dict]:
                     brand = (row.get("brand") or "").strip()
                     generic = (row.get("generic") or "").strip()
                     if brand and generic:
-                        brands.append({"brand": brand, "generic": generic, "verified": True})
+                        brands.append({
+                            "brand": brand, "generic": generic, "verified": True,
+                            "source": (row.get("source") or "verified list").strip(),
+                            "checked_by": (row.get("checked_by") or "").strip(),
+                        })
 
     # Deduplicate by casefolded brand name.
     seen, unique = set(), []
@@ -103,6 +112,8 @@ def match_brand(text: str, brands: list[dict] | None = None, threshold: int = 60
         "generic": brand["generic"],
         "score": round(float(score), 1),
         "matched_text": text,
+        "source": brand.get("source", ""),
+        "checked_by": brand.get("checked_by", ""),
     }
 
 
