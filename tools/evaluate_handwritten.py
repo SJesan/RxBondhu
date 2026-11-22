@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT))
 
 from PIL import Image  # noqa: E402
 
-from rxbondhu import pipeline, recognizer, segmentation, vlm  # noqa: E402
+from rxbondhu import pipeline, vlm  # noqa: E402
 from rxbondhu.lexicon import normalise_name  # noqa: E402
 
 LOG_COLUMNS = [
@@ -64,11 +64,9 @@ def run_one(path: str, preprocess: bool, skip_vlm: bool) -> dict:
         from rxbondhu.preprocess import enhance_for_segmentation
         image = enhance_for_segmentation(image)
 
-    words = segmentation.segment(image)[:30]
-    cnn_hits = recognizer.predict_words([w["image"] for w in words]) if words else []
-    cnn_preds = [hits[0]["brand"] for hits in cnn_hits if hits]
-
     analysis = pipeline.analyse(image, full_image=image, skip_vlm=skip_vlm)
+    # Line-level readings, matching the app's screen 2 exactly.
+    cnn_preds = analysis.get("line_cnn_preds", [])
     vlm_preds = [line.get("medicine", "") for line in analysis.get("vlm_lines", [])]
     items = analysis["items"]
     combined = [(it.get("name") or "", it.get("colour", "RED"),
@@ -79,7 +77,8 @@ def run_one(path: str, preprocess: bool, skip_vlm: bool) -> dict:
         "vlm_preds": vlm_preds,
         "combined": combined,
         "vlm_error": analysis.get("vlm_error", ""),
-        "word_count": len(words),
+        "word_count": analysis.get("word_count", 0),
+        "line_count": analysis.get("line_count", 0),
     }
 
 

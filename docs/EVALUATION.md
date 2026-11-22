@@ -33,9 +33,10 @@ were resolved against the matching `*_words` folders.
 After copying our checkpoint into `models/`, `tools/verify_model.py` reported:
 
 - CNN metadata loaded: 78 classes, `img_size = [128, 384]`, `test_accuracy = 0.9590`
-- 5 word crops produced by `segmentation.segment()`
-- Fusion output: `Napa — YELLOW (cnn 0.411)`, `Maxpro — YELLOW (cnn 0.076)`,
-  extra crops `RED` because CNN/Gemini disagreed
+- 5 word crops produced by `segmentation.segment()` (CNN evidence only)
+- After the 22 Nov line-level fix, fusion output is `Napa — RED (cnn 0.434)`
+  and `Maxpro — RED (cnn 0.384)`: Gemini's names are shown, but the CNN's
+  top class is outside the verified lexicon, so GREEN is never allowed.
 
 The public Streamlit Cloud deployment
 **https://rxbondhu.streamlit.app** was also verified on 22 Nov 2026: the sidebar
@@ -71,6 +72,21 @@ real handwriting, and the detector also picks up header/test-name lines
 the medicine lines, and why preprocessing stays off by default — it did not
 help on this external set. This measured domain gap is *not* a claim that the
 CNN reads these whole photos at 0.9590.
+
+## 1d. Line-level review fix (22 Nov 2026)
+
+A full-page phone photo previously produced one review row per segmented word
+(30 rows, mostly `Az`) because word crops were paired by index with Gemini's
+four lines. `pipeline.analyse()` now produces **one row per medicine line**;
+word crops still feed our CNN, and the highest-confidence CNN reading inside a
+line is kept. When that CNN class is outside the verified lexicon, the name
+shown comes from Gemini while the badge stays 🔴 RED — never GREEN.
+
+Live integration check on `images.jpg` (Amdocal / Eltroxin / Paricel / Vave):
+`word_count = 30`, `line_count = 4`, four correctly named rows, all RED, read by
+`gemini-2.5-flash` with no API error. On `samples/sample_ui_smoke.png`:
+`word_count = 10`, `line_count = 2`, `Napa — 1+0+1` and `Maxpro — BD`.
+These are presentation/integration checks, **not** accuracy measurements.
 
 ## 2. Handwritten prescription test (10–12 samples) — pending
 

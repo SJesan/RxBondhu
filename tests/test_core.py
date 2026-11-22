@@ -121,6 +121,15 @@ class TestFusion(unittest.TestCase):
         self.assertEqual(result["name"], "Az")
         self.assertIn("not in the verified", result["reason"])
 
+    def test_unverified_cnn_shows_gemini_name_but_stays_red(self):
+        raw = "Tab. Amdocal Plus 50 (Amlodipine + Atenolol)"
+        result = fuse({"brand": "Az", "confidence": 0.95}, raw, self.brands)
+        self.assertEqual(result["colour"], "RED")
+        self.assertIn("Amdocal", result["name"])
+        self.assertNotIn("Az", result["name"])
+        self.assertIsNone(result["generic"])
+        self.assertIn("not in the verified", result["reason"])
+
 
 class TestSafety(unittest.TestCase):
     def test_duplicate_generic_detected(self):

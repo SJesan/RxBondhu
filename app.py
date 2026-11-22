@@ -77,7 +77,7 @@ def screen_1():
         st.caption("Session reading limit reached — Gemini is paused, our CNN still works.")
     if st.button("🔍 Read with both AI models →", type="primary"):
         skip_vlm = st.session_state.read_count >= 5
-        with st.spinner("Segmenting words, running our CNN"
+        with st.spinner("Finding medicine lines, running our CNN"
                         + ("…" if skip_vlm else " and Gemini…")):
             try:
                 st.session_state.analysis = pipeline.analyse(
@@ -101,7 +101,7 @@ def screen_2():
     cnn_ok = analysis["cnn_available"]
     vlm_ok = not analysis["vlm_error"]
     c1, c2, c3 = st.columns(3)
-    c1.metric("Word crops found", analysis["word_count"])
+    c1.metric("Medicine lines found", analysis["line_count"])
     c2.metric("Our CNN", "ready" if cnn_ok else "not trained yet")
     c3.metric("Gemini", analysis["vlm_model"] if vlm_ok else "offline")
     if not vlm_ok:
@@ -109,8 +109,8 @@ def screen_2():
     st.caption("🟢 both agree · 🟡 one is unsure · 🔴 disagree or low confidence — always confirm these.")
 
     if not analysis["items"]:
-        st.error("No words detected. Try a tighter, better-lit crop.")
-    st.caption("Word crop on the left, both readings on the right — compare them with the paper.")
+        st.error("No medicine lines detected. Try a tighter, better-lit crop.")
+    st.caption("Line crop on the left, both readings on the right — compare them with the paper.")
     for item in analysis["items"]:
         with st.container(border=True):
             left, right = st.columns([1, 4])
