@@ -1,9 +1,10 @@
 # Evaluation proof — real results
 
 Numbers below come from **our own** Kaggle training run and `models/labels.json`.
-Nothing is copied from another person's checkpoint or report. The volunteer
-handwritten-test table at the end is still pending and must stay blank until the
-real test is done.
+Nothing is copied from another person's checkpoint or report. The real-handwriting
+test in §2 was written by a doctor contacted online on 22 Nov 2026; only the
+medicine-line crops were kept, so no patient identifier appears in any evaluated
+image.
 
 ## 1. Our CNN (trained by us)
 
@@ -91,11 +92,14 @@ These are presentation/integration checks, **not** accuracy measurements.
 ## 2. Handwritten prescription test (10 samples, 22 Nov 2026) — done
 
 Ten real-handwriting medicine-line crops were read with the **same pipeline as
-the app**. The answer key was typed from the paper and then corrected by hand on
-22 Nov 2026 (six corrections: Renova 5→3 days, Loetril 3→6 months, Lorno
-12→21 days, Frenxit 2→1 month, Napa Rapid 3m→3 months, Flacort 6→10 mg).
-The photos and verified key stay local for privacy (`results/rx/` and
-`results/answer_key.csv` are gitignored); only derived metrics are committed.
+the app**. They were handwritten by **a doctor contacted online** (not typed or
+AI-generated), and only the medicine lines were cropped — no patient name, phone
+or address is present in any evaluated image. The answer key was typed from the
+paper and then corrected by hand on 22 Nov 2026 (six corrections: Renova 5→3 days,
+Loetril 3→6 months, Lorno 12→21 days, Frenxit 2→1 month, Napa Rapid 3m→3 months,
+Flacort 6→10 mg). The photos and verified key stay local for privacy
+(`results/rx/` and `results/answer_key.csv` are gitignored); only derived metrics
+are committed.
 
 `gemini-2.5-flash` reached its free-tier limit of 20 requests/day, so the
 documented fallback **`gemini-3.5-flash-lite`** served all 10 images. Every
@@ -129,6 +133,10 @@ lexicon, so the displayed name comes from Gemini but the badge stays 🔴 RED.
 That is why combined accuracy is low and over-flag rate is 1.0 — the system
 refuses to auto-approve unverified names. Every wrong combined reading was
 flagged (catch rate 1.0), and **not a single wrong name was shown GREEN**.
+
+**Limitation:** all 10 samples were written by one person (the doctor contacted
+online), so writer variety is limited — this is a same-writer safety check, not a
+population-level accuracy claim.
 
 **Domain-gap note (honest answer to the 0.9590 question).** The 0.9590 figure is
 accuracy on **cropped word images from the public dataset**, not on real

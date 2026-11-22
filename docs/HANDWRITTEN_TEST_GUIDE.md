@@ -1,11 +1,14 @@
-# Real-handwriting test guide (10–12 Rx) — do this in the morning
+# Real-handwriting test guide (10–12 Rx) — completed 22 Nov 2026
 
-Goal: fill the blank section 2 of `docs/EVALUATION.md` with **real** results. No invented numbers.
+Status: section 2 of `docs/EVALUATION.md` is now filled from 10 real medicine-line
+crops handwritten by a doctor contacted online. This file stays as the repeatable
+recipe. No invented numbers.
 
 ## 1. Safety first
 - Use **fake patient names** only (e.g. "Test Case 01"). No real patient data, no real prescriptions.
 - Write on plain white A4 paper with a **blue or black pen**. No printed text for the medicine lines.
 - Ask **3–5 volunteers** if available (classmates/friends). Different handwriting = stronger proof. If nobody is available, you can write all 12 yourself with varied styles, but say so honestly in the notes.
+- **What we actually did (22 Nov):** one doctor contacted online wrote all 10 samples. Only the medicine lines were cropped — no patient name, phone or address. Writer variety is therefore limited; say so if asked.
 
 ## 2. What to write on each sheet
 Each sheet is one fake prescription with:
