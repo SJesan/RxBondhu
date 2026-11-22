@@ -78,7 +78,7 @@ streamlit run app.py
 
 Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the reader only.
 
-Tests (no network needed, 38 tests across 6 files):
+Tests (no network needed, 39 tests across 6 files):
 
 ```bash
 .\venv\Scripts\python.exe tests\test_core.py

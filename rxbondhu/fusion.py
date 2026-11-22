@@ -21,6 +21,7 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
     cnn_confident = bool(cnn_brand and cnn_conf >= threshold)
 
     cnn_row = lookup_exact(cnn_brand, brands) if cnn_brand else None
+    cnn_verified = cnn_row is not None
     cnn_generic = cnn_row["generic"] if cnn_row else None
 
     vlm_match = match_brand(vlm_text, brands, threshold=60) if vlm_text else None
@@ -28,7 +29,13 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
     vlm_name = vlm_match["brand"] if vlm_confident else ""
     vlm_generic = vlm_match["generic"] if vlm_confident else None
 
-    if cnn_confident and vlm_confident:
+    # A CNN class can exist in our 78-class model but not in the 18-brand
+    # verified lexicon. Never promote such a guess to GREEN/YELLOW: show it as
+    # RED with an explicit reason instead of crashing on cnn_row["brand"].
+    if cnn_brand and not cnn_verified:
+        colour, reason = "RED", "CNN brand is not in the verified medicine list - please confirm"
+        chosen, generic = cnn_brand, None
+    elif cnn_confident and vlm_confident:
         if normalise_name(cnn_brand) == normalise_name(vlm_name):
             colour, reason = "GREEN", "Both readers agree"
             chosen, generic = cnn_row["brand"], cnn_generic

@@ -113,6 +113,14 @@ class TestFusion(unittest.TestCase):
         names = [s["brand"] for s in suggest_brands("Maxpo", self.brands)]
         self.assertIn("Maxpro", names)
 
+    def test_unverified_cnn_brand_is_red_not_a_crash(self):
+        # CNN classes like "Az" exist in the 78-class model but not in the
+        # verified lexicon. This used to raise TypeError: NoneType not subscriptable.
+        result = fuse({"brand": "Az", "confidence": 0.95}, "", self.brands)
+        self.assertEqual(result["colour"], "RED")
+        self.assertEqual(result["name"], "Az")
+        self.assertIn("not in the verified", result["reason"])
+
 
 class TestSafety(unittest.TestCase):
     def test_duplicate_generic_detected(self):

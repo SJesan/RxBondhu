@@ -69,6 +69,9 @@ def screen_1():
 
     st.subheader("Crop the medicine area")
     st.session_state.crop = crop_ui(st.session_state.source)
+    if st.session_state.crop is None:
+        st.warning("Crop is not ready yet — drag a box around the medicine lines, then try again.")
+        return
     st.image(st.session_state.crop, caption="Selected crop", width='stretch')
     if st.session_state.read_count >= 5:
         st.caption("Session reading limit reached — Gemini is paused, our CNN still works.")
