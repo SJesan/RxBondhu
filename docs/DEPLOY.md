@@ -14,7 +14,7 @@ prototype for the on-site final.
    - Main file path: `app.py`
    - App URL: e.g. `rxbondhu` → `https://rxbondhu.streamlit.app`
 4. Click **Advanced settings**:
-   - Python version: **3.11**
+   - Python version: **3.14** (current Cloud container runs 3.14.10; local venv 3.11 also works)
    - Secrets field:
      ```toml
      GEMINI_API_KEY = "your-real-key"
@@ -30,6 +30,12 @@ Notes:
 - `requirements.txt` uses PyTorch's CPU wheel index, so no CUDA packages are
   downloaded on the free container.
 - Our `vlm.py` reads `st.secrets` first and falls back to local `.env`.
+- **Streamlit hot-reload caveat (observed 23 Nov):** after a push, Streamlit can
+  re-execute the new `app.py` while keeping an older `rxbondhu.ui` in memory,
+  giving `AttributeError: module 'rxbondhu.ui' has no attribute 'dgda_card_html'`
+  on Screen 2. The card call is now defensive (a neutral card replaces the crash),
+  but after any code push use **app menu → Reboot** once so all modules reload.
+  Ask the presenter to refresh the browser and re-read the photo after a reboot.
 
 ## 2. Why not Hugging Face?
 
