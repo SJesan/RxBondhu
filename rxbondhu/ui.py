@@ -58,6 +58,7 @@ div.stButton > button:active { transform: translateY(0); }
 .rx-green { background:#E8F7ED; color:#0B6B3A; border-color:#BFE6CC; }
 .rx-yellow { background:#FFF7DF; color:#8A6100; border-color:#F2D98D; }
 .rx-red { background:#FDECEC; color:#9A2020; border-color:#F3C5C5; }
+.rx-unverified { background:#EEF4FA; color:#26547A; border-color:#C6DCEC; }
 .rx-disclaimer {
   background:#F2F7F2; border-left:4px solid #147D46; border-radius:10px;
   padding:0.7rem 0.9rem; color:#23452F;
@@ -158,6 +159,7 @@ def badge(colour: str) -> str:
     mapping = {
         "GREEN": ("rx-green", "🟢 GREEN"),
         "YELLOW": ("rx-yellow", "🟡 YELLOW"),
+        "UNVERIFIED": ("rx-unverified", "🔍 UNVERIFIED"),
         "RED": ("rx-red", "🔴 RED"),
     }
     css, label = mapping.get(str(colour).upper(), ("rx-red", str(colour)))

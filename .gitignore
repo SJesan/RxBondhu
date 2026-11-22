@@ -22,6 +22,8 @@ results/crop_dump/
 # Provisional real-handwriting artifacts — stay local until a human verifies the key
 results/answer_key.csv
 results/handwritten_cnn_only_*
+results/*_bakeoff_log.csv
+results/*_bakeoff_summary.json
 
 # Source documents kept locally for reference (not part of the app)
 rulebook.pdf

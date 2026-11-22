@@ -26,3 +26,9 @@ def duplicate_warning(medicines: list[dict]) -> list[str]:
 def has_red(items: list[dict]) -> bool:
     """True when any review item is marked RED."""
     return any(str(item.get("colour", "")).upper() == "RED" for item in items or [])
+
+
+def has_unconfirmed(items: list[dict]) -> bool:
+    """True for RED, YELLOW or UNVERIFIED — all need human review."""
+    return any(str(item.get("colour", "")).upper() in {"RED", "YELLOW", "UNVERIFIED"}
+               for item in items or [])

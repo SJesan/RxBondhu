@@ -10,8 +10,11 @@ import io
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
+
+from dotenv import load_dotenv
 
 DEFAULT_MODELS = ("qwen/qwen3.8-27b",)
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -32,6 +35,7 @@ Rules:
 
 
 def _secret(name: str, default: str = "") -> str:
+    load_dotenv()
     try:
         import streamlit as st
         value = st.secrets.get(name, "")
@@ -112,22 +116,37 @@ def read(image, model: str | None = None) -> dict:
             API_URL,
             data=json.dumps(payload).encode("utf-8"),
             headers={"Authorization": f"Bearer {key}",
-                     "Content-Type": "application/json"},
+                     "Content-Type": "application/json",
+                     "Accept": "application/json",
+                     "User-Agent": "RxBondhu/2.0 (+local-demo)"},
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                body = json.loads(response.read().decode("utf-8"))
-            raw = (body["choices"][0]["message"]["content"] or "").strip()
-            if raw:
-                return {"lines": _extract_lines(raw), "raw": raw,
-                        "error": "", "model": candidate}
-            errors.append(f"{candidate}: empty response")
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", "replace")[:300]
-            errors.append(f"{candidate}: HTTP {exc.code} {detail}")
-        except Exception as exc:
-            errors.append(f"{candidate}: {exc}")
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+                raw = (body["choices"][0]["message"]["content"] or "").strip()
+                if raw:
+                    return {"lines": _extract_lines(raw), "raw": raw,
+                            "error": "", "model": candidate}
+                errors.append(f"{candidate}: empty response")
+                break
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", "replace")[:300]
+                if exc.code == 429 and attempt < 3:
+                    # Groq free tier is ~7k input tokens/minute; one image uses ~2.2k.
+                    # Honour Retry-After when present, otherwise wait 20 seconds.
+                    try:
+                        wait = float(exc.headers.get("Retry-After") or 20)
+                    except (TypeError, ValueError):
+                        wait = 20.0
+                    time.sleep(min(max(wait, 1.0), 45.0))
+                    continue
+                errors.append(f"{candidate}: HTTP {exc.code} {detail}")
+                break
+            except Exception as exc:
+                errors.append(f"{candidate}: {exc}")
+                break
     return {"lines": [], "raw": "",
             "error": "Groq models failed: " + " | ".join(errors),
             "model": model or ""}

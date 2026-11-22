@@ -9,15 +9,17 @@ instead of crashing.
 
 ANALYSIS_KEYS = (
     "items", "line_count", "cnn_available", "vlm_error", "vlm_model",
-    "vlm_lines", "word_count",
+    "vlm_lines", "vlm2_error", "vlm2_model", "vlm2_lines", "word_count",
 )
 
 ITEM_KEYS = (
     "index", "name", "reason", "colour", "cnn_brand", "cnn_confidence",
-    "vlm_guess", "vlm_text", "dose_text", "suggestions", "generic", "box",
+    "vlm_guess", "vlm_text", "vlm2_guess", "vlm2_text", "agreement",
+    "dose_text", "suggestions", "generic", "box",
 )
 
-CONFIRMED_KEYS = ("index", "name", "options", "dose", "generic", "colour")
+CONFIRMED_KEYS = ("index", "name", "options", "dose", "generic", "colour",
+                  "editable", "raw_reading")
 
 
 def _has_keys(obj, keys):

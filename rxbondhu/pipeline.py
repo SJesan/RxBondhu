@@ -11,7 +11,7 @@ prevents a full-page photo from producing 30 meaningless ``Az`` rows.
 
 from .dose_parser import parse
 from .fusion import fuse
-from .safety import duplicate_warning, has_red
+from .safety import duplicate_warning, has_unconfirmed
 
 MAX_LINES = 12
 
@@ -103,15 +103,17 @@ def _line_crops(image, line_count: int, line_boxes: list[dict]) -> tuple[list, l
 
 
 def analyse(image, max_words: int = 30, max_lines: int = MAX_LINES,
-            full_image=None, skip_vlm: bool = False, resize_vlm: bool = True) -> dict:
+            full_image=None, skip_vlm: bool = False, resize_vlm: bool = True,
+            use_second_reader: bool = True) -> dict:
     """Read one cropped medicine area with both AI models, one row per line.
 
-    Gemini receives the *full* photo when provided — it reads surrounding
-    context better, while our CNN reads the cropped word images. The full
-    image is downscaled to 1600 px on the long side before upload to save quota.
+    Two independent Gemini models receive the *full* photo when provided —
+    each reads surrounding context better, while our CNN reads cropped words.
+    The photo is downscaled to 1600 px on the long side before upload.
 
     Set ``skip_vlm=True`` for the session quota guard: no API call is made and
     the UI honestly reports CNN-only mode; lines are then grouped by geometry.
+    Set ``use_second_reader=False`` if only the primary reader is available.
     """
     from . import recognizer, segmentation, vlm
 
@@ -121,18 +123,31 @@ def analyse(image, max_words: int = 30, max_lines: int = MAX_LINES,
         gemini = {"lines": [], "raw": "",
                   "error": "Session reading limit reached - CNN-only mode",
                   "model": "offline"}
+        second = {"lines": [], "raw": "",
+                  "error": "Session reading limit reached - CNN-only mode",
+                  "model": "offline"}
     else:
         sent = full_image if full_image is not None else image
         if resize_vlm and sent is not None:
             sent = sent.copy()
             sent.thumbnail((1600, 1600))
-        gemini = vlm.read(sent)
+        gemini = vlm.read(sent, model=vlm.primary_model())
+        if use_second_reader:
+            second = vlm.read(sent, model=vlm.second_model())
+        else:
+            second = {"lines": [], "raw": "",
+                      "error": "Second reader disabled", "model": "offline"}
 
-    vlm_lines = gemini["lines"] or []
+    primary_lines = gemini["lines"] or []
+    second_lines = second["lines"] or []
+    # Use either reader for the *number* of review rows, but never reuse one
+    # reader's text as the other reader's opinion — that would fake a GREEN.
+    vlm_lines = primary_lines or second_lines
     line_boxes = _rescaled_line_boxes(image, segmentation.segment_lines(image))
     if vlm_lines:
         line_count = min(len(vlm_lines), max_lines)
-        line_inputs = vlm_lines[:line_count]
+        line_inputs = (primary_lines[:line_count] if primary_lines
+                       else [{} for _ in range(line_count)])
         assignments = _assign_words_to_lines(words, line_count)
     else:
         # Gemini offline: keep the old geometric grouping as a safe fallback.
@@ -146,10 +161,13 @@ def analyse(image, max_words: int = 30, max_lines: int = MAX_LINES,
     for index in range(line_count):
         cnn = _best_cnn(cnn_hits, assignments[index])
         vlm_line = line_inputs[index]
-        result = fuse(cnn, vlm_line.get("medicine", ""))
+        second_line = second_lines[index] if index < len(second_lines) else {}
+        result = fuse(cnn, vlm_line.get("medicine", ""),
+                      second_vlm_text=second_line.get("medicine", ""))
         items.append({
             **result,
-            "dose_text": vlm_line.get("dose", ""),
+            "dose_text": vlm_line.get("dose", "") or second_line.get("dose", ""),
+            "second_dose_text": second_line.get("dose", ""),
             "box": boxes[index],
             "index": index,
         })
@@ -162,6 +180,10 @@ def analyse(image, max_words: int = 30, max_lines: int = MAX_LINES,
         "vlm_error": gemini["error"],
         "vlm_model": gemini["model"],
         "vlm_lines": vlm_lines[:line_count],
+        "vlm2_raw": second["raw"],
+        "vlm2_error": second["error"],
+        "vlm2_model": second["model"],
+        "vlm2_lines": second_lines[:line_count],
         "cnn_available": recognizer.available(),
         "word_count": len(words),
         "line_count": line_count,
@@ -188,8 +210,9 @@ def build_schedule(confirmed: list[dict]) -> dict:
         })
 
     warnings = duplicate_warning(medicines)
-    if has_red(confirmed or []):
-        warnings.append("Some lines were uncertain — please confirm them with your pharmacist.")
+    if has_unconfirmed(confirmed or []):
+        warnings.append("Some lines need confirmation — unknown brands are never auto-accepted. "
+                        "Please verify them with your pharmacist.")
     for med in medicines:
         warnings.extend(med["dose"]["warnings"])
 

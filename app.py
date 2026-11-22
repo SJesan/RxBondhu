@@ -120,13 +120,19 @@ def screen_2():
     cnn_ok = bool(analysis.get("cnn_available"))
     vlm_error = analysis.get("vlm_error") or ""
     vlm_ok = not vlm_error
-    c1, c2, c3 = st.columns(3)
+    second_error = analysis.get("vlm2_error") or ""
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Medicine lines found", analysis.get("line_count", len(analysis["items"])))
     c2.metric("Our CNN", "ready" if cnn_ok else "not trained yet")
-    c3.metric("Gemini", (analysis.get("vlm_model") or "offline") if vlm_ok else "offline")
+    c3.metric("Reader 1", (analysis.get("vlm_model") or "offline") if vlm_ok else "offline")
+    c4.metric("Reader 2", (analysis.get("vlm2_model") or "offline") if not second_error else "offline")
     if not vlm_ok:
-        st.warning(f"Gemini unavailable: {vlm_error} — showing CNN-only results.")
-    st.caption("🟢 both agree · 🟡 one is unsure · 🔴 disagree or low confidence — always confirm these.")
+        st.warning(f"Reader 1 unavailable: {vlm_error} — continuing with Reader 2 and CNN.")
+    if second_error:
+        st.warning(f"Reader 2 unavailable: {second_error} — continuing with Reader 1 and CNN.")
+    st.caption("🟢 both readers agree on a verified brand · 🟡 one reader confident · "
+               "🔍 readable but unverified (edit the name) · 🔴 disagreement or low confidence. "
+               "Nothing is a schedule until you confirm it.")
 
     if not analysis["items"]:
         st.error("No medicine lines detected. Try a tighter, better-lit crop.")
@@ -144,7 +150,8 @@ def screen_2():
             confidence = float(item.get("cnn_confidence") or 0.0)
             right.write(
                 f"CNN: `{item.get('cnn_brand') or '—'}` ({confidence:.2f}) · "
-                f"Gemini: `{item.get('vlm_guess') or item.get('vlm_text') or '—'}`"
+                f"Reader 1: `{item.get('vlm_guess') or item.get('vlm_text') or '—'}` · "
+                f"Reader 2: `{item.get('vlm2_guess') or item.get('vlm2_text') or '—'}`"
             )
             if right.button("🚩 Looks wrong — mark RED", key=f"wrong_{item['index']}"):
                 item["colour"] = "RED"
@@ -160,6 +167,9 @@ def screen_2():
             if item["name"] and item["name"] not in options:
                 options.insert(0, item["name"])
             options.append("— skip this line —")
+            unverified = str(item["colour"]).upper() == "UNVERIFIED"
+            if unverified:
+                options = [item["name"] or "— skip this line —", "— skip this line —"]
             rows.append({
                 "index": item["index"],
                 "name": options[0] if options else "— skip this line —",
@@ -167,6 +177,8 @@ def screen_2():
                 "dose": item["dose_text"],
                 "generic": item["generic"] or "",
                 "colour": item["colour"],
+                "editable": unverified,
+                "raw_reading": item.get("vlm_guess") or item.get("vlm2_guess") or "",
             })
         st.session_state.confirmed = rows
         st.session_state.page = 3
@@ -203,8 +215,15 @@ def screen_3():
     for row in rows:
         with st.container(border=True):
             c1, c2, c3 = st.columns([3, 3, 2])
-            row["name"] = c1.selectbox("Brand (choose or correct)", row["options"],
-                                       index=0, key=f"name_{row['index']}")
+            if row.get("editable"):
+                row["name"] = c1.text_input(
+                    "Brand — unverified, type the name from the paper",
+                    row["name"], key=f"name_{row['index']}",
+                )
+                c1.caption(f"Reader saw: {row.get('raw_reading') or '—'}")
+            else:
+                row["name"] = c1.selectbox("Brand (choose or correct)", row["options"],
+                                           index=0, key=f"name_{row['index']}")
             row["dose"] = c2.text_input("Dose (e.g. 1+0+1, BD, সকাল ১ টি)",
                                         row["dose"], key=f"dose_{row['index']}")
             exact = lookup_exact(row["name"], brands)

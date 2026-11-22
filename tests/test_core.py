@@ -86,13 +86,15 @@ class TestFusion(unittest.TestCase):
         self.brands = load_brands()
 
     def test_green_when_both_agree(self):
-        result = fuse({"brand": "Maxpro", "confidence": 0.93}, "Tab Maxpro 20mg", self.brands)
+        result = fuse({"brand": "Maxpro", "confidence": 0.93}, "Tab Maxpro 20mg", self.brands,
+                      second_vlm_text="Cap Maxpro 20")
         self.assertEqual(result["colour"], "GREEN")
         self.assertEqual(result["name"], "Maxpro")
         self.assertFalse(result["needs_confirm"])
 
     def test_green_with_fuzzy_vlm(self):
-        result = fuse({"brand": "Maxpro", "confidence": 0.91}, "Maxpo", self.brands)
+        result = fuse({"brand": "Maxpro", "confidence": 0.91}, "Maxpo", self.brands,
+                      second_vlm_text="Maxpro 20mg")
         self.assertEqual(result["colour"], "GREEN")
 
     def test_yellow_when_only_cnn_confident(self):
@@ -113,22 +115,35 @@ class TestFusion(unittest.TestCase):
         names = [s["brand"] for s in suggest_brands("Maxpo", self.brands)]
         self.assertIn("Maxpro", names)
 
-    def test_unverified_cnn_brand_is_red_not_a_crash(self):
+    def test_unverified_cnn_brand_is_never_green(self):
         # CNN classes like "Az" exist in the 78-class model but not in the
-        # verified lexicon. This used to raise TypeError: NoneType not subscriptable.
+        # verified lexicon. Unknown is UNVERIFIED (editable), never GREEN.
         result = fuse({"brand": "Az", "confidence": 0.95}, "", self.brands)
-        self.assertEqual(result["colour"], "RED")
+        self.assertEqual(result["colour"], "UNVERIFIED")
         self.assertEqual(result["name"], "Az")
-        self.assertIn("not in the verified", result["reason"])
+        self.assertIn("verified", result["reason"])
+        self.assertTrue(result["needs_confirm"])
 
-    def test_unverified_cnn_shows_gemini_name_but_stays_red(self):
+    def test_unverified_cnn_shows_reader_name_but_stays_unverified(self):
         raw = "Tab. Amdocal Plus 50 (Amlodipine + Atenolol)"
         result = fuse({"brand": "Az", "confidence": 0.95}, raw, self.brands)
-        self.assertEqual(result["colour"], "RED")
+        self.assertEqual(result["colour"], "UNVERIFIED")
         self.assertIn("Amdocal", result["name"])
         self.assertNotIn("Az", result["name"])
         self.assertIsNone(result["generic"])
-        self.assertIn("not in the verified", result["reason"])
+        self.assertIn("verified", result["reason"])
+
+    def test_two_readers_disagree_is_red(self):
+        result = fuse({"brand": "Napa", "confidence": 0.93}, "Tab Napa", self.brands,
+                      second_vlm_text="Tab Maxpro")
+        self.assertEqual(result["colour"], "RED")
+        self.assertIn("disagree", result["reason"])
+
+    def test_one_verified_reader_and_one_unknown_is_yellow(self):
+        result = fuse({"brand": "Napa", "confidence": 0.93}, "Tab Napa", self.brands,
+                      second_vlm_text="Tab Zzqqx")
+        self.assertEqual(result["colour"], "YELLOW")
+        self.assertEqual(result["name"], "Napa")
 
 
 class TestSafety(unittest.TestCase):

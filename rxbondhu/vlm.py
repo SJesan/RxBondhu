@@ -30,10 +30,16 @@ DEFAULT_MODELS = (
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
 )
+# v2: two independent readers. Both bake-off-tested on the same 10 images;
+# gemini-2.5-flash is left in the fallback chain only because its free quota
+# was exhausted during testing.
+PRIMARY_MODEL = "gemini-3.5-flash-lite"
+SECOND_MODEL = "gemini-3.1-flash-lite"
 
 
 def _secret(name: str, default: str = "") -> str:
     """Read a secret from Streamlit Cloud first, then local .env/os.environ."""
+    load_dotenv()
     try:
         import streamlit as st
         value = st.secrets.get(name, "")
@@ -66,6 +72,16 @@ def _client():
         return genai.Client(api_key=key), ""
     except Exception as exc:
         return None, f"Could not create Gemini client: {exc}"
+
+
+def primary_model() -> str:
+    """Model used by the first photo reader (override with RX_VLM_PRIMARY_MODEL)."""
+    return _secret("RX_VLM_PRIMARY_MODEL", PRIMARY_MODEL).strip() or PRIMARY_MODEL
+
+
+def second_model() -> str:
+    """Model used by the independent second reader (RX_VLM_SECOND_MODEL)."""
+    return _secret("RX_VLM_SECOND_MODEL", SECOND_MODEL).strip() or SECOND_MODEL
 
 
 def available() -> tuple[bool, str]:

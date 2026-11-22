@@ -30,7 +30,7 @@ class TestSchedule(unittest.TestCase):
     def test_red_row_adds_warning(self):
         rows = [{"name": "Napa", "generic": "Paracetamol", "dose": "OD", "colour": "RED"}]
         result = build_schedule(rows)
-        self.assertTrue(any("uncertain" in w for w in result["warnings"]))
+        self.assertTrue(any("confirmation" in w for w in result["warnings"]))
 
     def test_empty_name_skipped(self):
         result = build_schedule([{"name": "", "dose": "BD"}])
@@ -89,6 +89,25 @@ class TestLineBasedAnalysis(unittest.TestCase):
         self.assertEqual(len(result["images"]), 2)
         self.assertEqual(result["line_cnn_preds"], ["Napa", "Maxpro"])
 
+    def test_offline_primary_cannot_fake_green(self):
+        lines = [{"medicine": "Tab Napa", "dose": "1+0+1"}]
+        patches = self._patches()
+        for p in patches:
+            p.start()
+        try:
+            with patch.object(vlm, "read", side_effect=[
+                {"lines": [], "raw": "", "error": "429 quota", "model": "r1"},
+                {"lines": lines, "raw": "", "error": "", "model": "r2"},
+            ]):
+                result = pipeline.analyse(self.image, full_image=self.image)
+        finally:
+            for p in reversed(patches):
+                p.stop()
+        self.assertEqual(result["line_count"], 1)
+        self.assertNotEqual(result["items"][0]["colour"], "GREEN")
+        self.assertEqual(result["items"][0]["name"], "Napa")
+        self.assertEqual(result["items"][0]["dose_text"], "1+0+1")
+
     def test_word_fragments_do_not_create_rows(self):
         many_words = self.words * 6
         many_hits = self.hits * 6
@@ -122,7 +141,8 @@ class TestLineBasedAnalysis(unittest.TestCase):
 
         self.assertEqual(result["line_count"], 2)
         self.assertEqual(len(result["items"]), 2)
-        self.assertTrue(all(i["colour"] in ("GREEN", "YELLOW", "RED") for i in result["items"]))
+        self.assertTrue(all(i["colour"] in ("GREEN", "YELLOW", "UNVERIFIED", "RED")
+                            for i in result["items"]))
         self.assertTrue(all(not i["dose_text"] for i in result["items"]))
 
 
