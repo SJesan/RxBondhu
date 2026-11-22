@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rxbondhu import bangla, pipeline, recognizer, reminders, tts, ui, vlm  # noqa: E402
 from rxbondhu.lexicon import load_brands, lookup_exact, suggest_brands  # noqa: E402
+from rxbondhu.state_guard import analysis_is_current, confirmed_rows_are_current  # noqa: E402
 
 st.set_page_config(page_title="RxBondhu | রক্সবন্ধু", page_icon="💊", layout="wide")
 
@@ -33,6 +34,17 @@ def init_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+
+def reset_reading():
+    """Drop stale/out-of-date results and return to the photo screen."""
+    st.session_state.analysis = None
+    st.session_state.analysis_images = []
+    st.session_state.confirmed = None
+    st.session_state.schedule = None
+    st.session_state.audio = None
+    st.session_state.page = 1
+    st.rerun()
 
 
 def crop_ui(image: Image.Image) -> Image.Image:
@@ -94,18 +106,26 @@ def screen_1():
 def screen_2():
     ui.step_header(2, "২. দুই AI-র পড়া", "Two independent readers, one safety decision — nothing becomes a schedule yet.")
     analysis = st.session_state.analysis
-    if not analysis:
-        st.warning("Go back to Step 1 and read a photo first.")
+    if not analysis_is_current(analysis):
+        if analysis:
+            # An older app version stored word-level results in this session.
+            st.error("This reading came from an older version of RxBondhu. "
+                     "Please read the photo again — no data is lost.")
+            if st.button("← Back to photo and re-read"):
+                reset_reading()
+        else:
+            st.warning("Go back to Step 1 and read a photo first.")
         return
 
-    cnn_ok = analysis["cnn_available"]
-    vlm_ok = not analysis["vlm_error"]
+    cnn_ok = bool(analysis.get("cnn_available"))
+    vlm_error = analysis.get("vlm_error") or ""
+    vlm_ok = not vlm_error
     c1, c2, c3 = st.columns(3)
-    c1.metric("Medicine lines found", analysis["line_count"])
+    c1.metric("Medicine lines found", analysis.get("line_count", len(analysis["items"])))
     c2.metric("Our CNN", "ready" if cnn_ok else "not trained yet")
-    c3.metric("Gemini", analysis["vlm_model"] if vlm_ok else "offline")
+    c3.metric("Gemini", (analysis.get("vlm_model") or "offline") if vlm_ok else "offline")
     if not vlm_ok:
-        st.warning(f"Gemini unavailable: {analysis['vlm_error']} — showing CNN-only results.")
+        st.warning(f"Gemini unavailable: {vlm_error} — showing CNN-only results.")
     st.caption("🟢 both agree · 🟡 one is unsure · 🔴 disagree or low confidence — always confirm these.")
 
     if not analysis["items"]:
@@ -121,9 +141,10 @@ def screen_2():
                 unsafe_allow_html=True,
             )
             right.caption(item["reason"])
+            confidence = float(item.get("cnn_confidence") or 0.0)
             right.write(
-                f"CNN: `{item['cnn_brand'] or '—'}` ({item['cnn_confidence']:.2f}) · "
-                f"Gemini: `{item['vlm_guess'] or item['vlm_text'] or '—'}`"
+                f"CNN: `{item.get('cnn_brand') or '—'}` ({confidence:.2f}) · "
+                f"Gemini: `{item.get('vlm_guess') or item.get('vlm_text') or '—'}`"
             )
             if right.button("🚩 Looks wrong — mark RED", key=f"wrong_{item['index']}"):
                 item["colour"] = "RED"
@@ -157,14 +178,24 @@ def screen_2():
 
 def item_image(item):
     """Image crops are kept in memory in analysis, not in the dict sent to UI."""
-    return st.session_state.analysis_images[item["index"]]
+    images = st.session_state.get("analysis_images") or []
+    index = item.get("index", -1)
+    if isinstance(index, int) and 0 <= index < len(images):
+        return images[index]
+    return Image.new("RGB", (8, 8), "white")
 
 
 def screen_3():
     ui.step_header(3, "৩. নিশ্চিত করুন ও সময়সূচি", "You confirm every line. Only then do we build the Bangla schedule.")
     rows = st.session_state.confirmed or []
-    if not rows:
-        st.warning("Nothing to review yet.")
+    if not confirmed_rows_are_current(rows):
+        if rows:
+            st.error("This review came from an older version of RxBondhu. "
+                     "Please read the photo again.")
+            if st.button("← Back to photo and re-read"):
+                reset_reading()
+        else:
+            st.warning("Nothing to review yet.")
         return
     st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
 
