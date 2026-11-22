@@ -6,7 +6,9 @@ it from /static/three.min.js. Themes are injected as CSS variables on each
 rerun so a sidebar icon can switch them without any client-side hack.
 """
 
+import base64
 from html import escape
+from pathlib import Path
 from string import Template
 
 import streamlit as st
@@ -24,6 +26,9 @@ THEMES = {
         "accent_soft": "#E8F5EC",
         "shadow": "0 12px 30px rgba(13,88,46,0.10)",
         "shadow_hover": "0 18px 38px rgba(13,88,46,0.16)",
+        "on_accent": "#FFFFFF",
+        "button_shadow": "0 6px 16px rgba(14,107,60,0.24)",
+        "button_shadow_hover": "0 12px 24px rgba(14,107,60,0.32)",
         "hero_from": "#FAFDFB",
         "hero_to": "#EDF7F0",
         "hero_text": "#0B4B2A",
@@ -53,13 +58,18 @@ THEMES = {
         "text": "#E8F4EC",
         "muted": "#A8C4B2",
         "border": "#224433",
-        "accent": "#38D17F",
-        "accent_hover": "#5BE096",
-        "accent_soft": "#173B29",
+        # Softer emerald sits better on the near-black background; buttons use
+        # dark ink so bright fills never glow or wash out in dark mode.
+        "accent": "#34C97C",
+        "accent_hover": "#2BAE69",
+        "accent_soft": "#163626",
         "shadow": "0 14px 34px rgba(0,0,0,0.34)",
         "shadow_hover": "0 20px 44px rgba(0,0,0,0.46)",
+        "on_accent": "#04150C",
+        "button_shadow": "0 6px 16px rgba(0,0,0,0.38)",
+        "button_shadow_hover": "0 12px 24px rgba(0,0,0,0.5)",
         "hero_from": "#10281B",
-        "hero_to": "#0A1B12",
+        "hero_to": "#091710",
         "hero_text": "#E9F7EE",
         "hero_muted": "#A8C4B2",
         "pill_green": "0x2FBF6E",
@@ -106,6 +116,9 @@ CLEAN_CSS_TEMPLATE = Template("""
   --rx-accent-soft: $accent_soft;
   --rx-shadow: $shadow;
   --rx-shadow-hover: $shadow_hover;
+  --rx-on-accent: $on_accent;
+  --rx-button-shadow: $button_shadow;
+  --rx-button-shadow-hover: $button_shadow_hover;
   --rx-green-bg: $badge_green_bg;
   --rx-green-fg: $badge_green_fg;
   --rx-green-bd: $badge_green_bd;
@@ -134,8 +147,9 @@ hr { border-color: var(--rx-border) !important; }
 div[data-testid="stContainer"] {
   background: var(--rx-surface);
   border: 1px solid var(--rx-border);
-  border-radius: 18px;
-  padding: 14px 18px;
+  border-radius: 16px;
+  padding: 9px 13px;
+  margin-bottom: -4px;
   box-shadow: var(--rx-shadow);
   transition: transform 0.25s cubic-bezier(.2,.7,.3,1), box-shadow 0.25s;
   transform-style: preserve-3d;
@@ -193,17 +207,17 @@ div[data-testid="stLinkButton"] > a {
   border-radius: 999px !important;
   border: 1px solid var(--rx-accent) !important;
   background: linear-gradient(135deg, var(--rx-accent), var(--rx-accent-hover)) !important;
-  color: #FFFFFF !important;
+  color: var(--rx-on-accent) !important;
   font-weight: 800 !important;
-  padding: 0.55rem 1.25rem !important;
-  box-shadow: 0 6px 16px rgba(14,107,60,0.24);
+  padding: 0.5rem 1.1rem !important;
+  box-shadow: var(--rx-button-shadow);
   text-decoration: none !important;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 div.stButton > button:hover:not(:disabled), div.stDownloadButton > button:hover,
 div[data-testid="stLinkButton"] > a:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(14,107,60,0.32);
+  box-shadow: var(--rx-button-shadow-hover);
 }
 div.stButton > button:disabled {
   opacity: 0.55;
@@ -217,14 +231,28 @@ div.stButton > button:disabled {
   border-right: 1px solid var(--rx-border) !important;
   color: var(--rx-text) !important;
 }
+/* Keep the whole sidebar identity + AI disclosure on one screen. */
+[data-testid="stSidebar"] .block-container { padding: 0.6rem 0.9rem 1rem !important; }
 [data-testid="stSidebar"] .stMarkdown,
 [data-testid="stSidebar"] .stCaption,
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
   color: var(--rx-muted) !important;
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] label {
-  color: var(--rx-text) !important;
+[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div { margin-bottom: 0.1rem; }
+[data-testid="stSidebar"] div.stButton > button { padding: 0.32rem 0.8rem !important; }
+[data-testid="stSidebar"] [data-testid="stExpander"] { margin-top: 0.2rem; }
+.rx-step-nav { display: flex; gap: 5px; margin: 6px 0 4px; }
+.rx-step-nav span {
+  padding: 3px 8px; border-radius: 999px; border: 1px solid var(--rx-border);
+  font-size: 0.72rem; color: var(--rx-muted); white-space: nowrap;
 }
+.rx-step-nav span.on {
+  background: var(--rx-accent-soft); color: var(--rx-accent); font-weight: 800;
+}
+.rx-sidebar-foot {
+  font-size: 0.72rem; line-height: 1.38; color: var(--rx-muted); margin-top: 0.5rem;
+}
+.rx-sidebar-foot b { color: var(--rx-text); }
 
 .rx-kicker {
   color: var(--rx-accent); font-size: 0.78rem; font-weight: 800;
@@ -255,9 +283,39 @@ div.stButton > button:disabled {
   background:var(--rx-surface-alt); border-left:4px solid var(--rx-accent);
   border-radius:10px; padding:0.7rem 0.9rem; color:var(--rx-text);
 }
-.rx-sidebar-title { color:var(--rx-text); font-size:1.35rem; font-weight:900; margin:0; }
-.rx-sidebar-sub { color:var(--rx-muted); font-size:0.82rem; margin:0.15rem 0 0.7rem; }
+.rx-sidebar-title { color:var(--rx-text); font-size:1.25rem; font-weight:900; margin:0; }
+.rx-sidebar-sub { color:var(--rx-muted); font-size:0.78rem; margin:0.1rem 0 0.5rem; }
 .rx-credit { color:var(--rx-muted); font-size:0.78rem; margin-top:0.6rem; }
+/* Demo thumbnails behave exactly like the upload control. */
+.rx-demo-link {
+  display:block; border:2px solid transparent; border-radius:12px; padding:2px;
+  text-decoration:none; transition:transform 0.18s, border-color 0.18s;
+}
+.rx-demo-link:hover { border-color:var(--rx-accent); transform:translateY(-2px); }
+.rx-demo-link img { width:100%; display:block; border-radius:9px; }
+.rx-demo-link span {
+  display:block; text-align:center; font-size:0.7rem; color:var(--rx-muted); margin-top:2px;
+}
+/* Danger action stays visually separate from the green primary buttons. */
+div[data-testid="stForm"] {
+  background:transparent !important; border:0 !important; padding:0 !important;
+  box-shadow:none !important;
+}
+div[data-testid="stForm"] button {
+  border-radius:999px !important;
+  border:1.5px solid var(--rx-red-fg) !important;
+  background:var(--rx-red-bg) !important;
+  color:var(--rx-red-fg) !important;
+  font-size:0.78rem !important; font-weight:800 !important;
+  padding:0.34rem 0.78rem !important; box-shadow:none !important;
+  transition:transform 0.18s;
+}
+div[data-testid="stForm"] button:hover {
+  transform:translateY(-1px);
+  background:var(--rx-red-fg) !important; color:var(--rx-red-bg) !important;
+}
+.rx-review-badge { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.rx-review-meta { font-size:0.78rem; color:var(--rx-muted); margin-top:4px; }
 </style>
 """)
 
@@ -359,6 +417,61 @@ HERO_TEMPLATE = Template("""
 def hero(theme: str | None = None) -> None:
     """Compact 3D hero card shown above the step content."""
     st.iframe(HERO_TEMPLATE.substitute(palette(theme)), height=196)
+
+
+LOADING_TEMPLATE = Template("""
+<div class="rx-loading">
+  <div class="rx-capsule"><span></span><span></span></div>
+  <div class="rx-loading-title">Two AI readers are reading your prescription…</div>
+  <div class="rx-loading-sub">Finding medicine lines · running our CNN · checking DGDA</div>
+</div>
+<style>
+.rx-loading {
+  text-align:center; padding:22px 14px 18px; border-radius:18px;
+  background:var(--rx-surface); border:1px solid var(--rx-border);
+  box-shadow:var(--rx-shadow);
+}
+.rx-capsule {
+  width:118px; height:52px; margin:0 auto 14px; border-radius:999px;
+  display:flex; overflow:hidden; background:$surface;
+  border:1px solid $border; box-shadow:$shadow;
+  animation:rx-capsule-morph 1.5s ease-in-out infinite;
+}
+.rx-capsule span { flex:1; background:$accent; }
+.rx-capsule span + span { background:$surface; border-left:2px solid $border; }
+@keyframes rx-capsule-morph {
+  0%,100% { transform:rotate(-18deg) scaleX(1) scaleY(1); }
+  50% { transform:rotate(-18deg) scaleX(0.84) scaleY(1.1); }
+}
+.rx-loading-title { color:$hero_text; font-weight:800; font-size:0.95rem; }
+.rx-loading-sub { color:$muted; font-size:0.78rem; margin-top:4px; }
+@media (prefers-reduced-motion: reduce) { .rx-capsule { animation:none; } }
+</style>
+""")
+
+
+def loading_html(theme: str | None = None) -> str:
+    """CSS-only capsule animation shown while the two readers work."""
+    return LOADING_TEMPLATE.substitute(palette(theme))
+
+
+_DEMO_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+              ".webp": "image/webp"}
+
+
+def demo_thumb_html(path, label: str, index: int) -> str:
+    """A thumbnail that loads the demo as the source image when clicked."""
+    path = Path(path)
+    mime = _DEMO_MIME.get(path.suffix.lower(), "image/png")
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    safe_label = escape(str(label))
+    safe_name = escape(path.name)
+    return (
+        f'<a class="rx-demo-link" href="?demo={safe_name}" target="_self" '
+        f'title="Use {safe_label} as the prescription photo">'
+        f'<img src="data:{mime};base64,{encoded}" alt="{safe_label}">'
+        f'<span>{safe_label} · click to use</span></a>'
+    )
 
 
 def sidebar_header_html(info: dict | None, key_ok: bool) -> str:

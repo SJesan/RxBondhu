@@ -48,6 +48,33 @@ def reset_reading():
     st.rerun()
 
 
+def apply_query_actions():
+    """Turn a demo thumbnail click into a normal source-image change.
+
+    The thumbnail is a plain link, so clicking one reloads the script with a
+    query parameter. We apply it once and remove the parameter — from here on
+    the app treats it exactly like an upload. Stateful actions (RED flag) use
+    real Streamlit widgets so a rerun never loses the current reading.
+    """
+    params = st.query_params
+    demo = params.get("demo")
+    if demo:
+        demo_dir = Path(__file__).resolve().parent / "assets" / "demo"
+        path = demo_dir / Path(str(demo)).name
+        if path.is_file():
+            st.session_state.source = Image.open(path).convert("RGB")
+            st.session_state.crop = None
+            st.session_state.analysis = None
+            st.session_state.confirmed = None
+            st.session_state.schedule = None
+            st.session_state.audio = None
+            st.session_state.page = 1
+            st.session_state.demo_loaded = path.name
+        if "demo" in params:
+            del params["demo"]
+        st.rerun()
+
+
 def crop_ui(image: Image.Image, coverage: int = 92, key: str = "crop"):
     """Return (crop, box) so we can show one bordered original, not two photos."""
     already_cropped = st.checkbox(
@@ -82,24 +109,27 @@ def colour_badge(colour: str) -> str:
 def screen_1():
     ui.step_header(1, "১. ছবি দিন", "Upload a prescription photo or take one, then drag a box around the medicine lines only.")
     st.caption("Made by Team Zero-Shot · solo build for CoU AI Hackathon 2026")
+    loaded = st.session_state.pop("demo_loaded", None)
+    if loaded:
+        st.success(f"Loaded {loaded} — drag the crop box, then read it.")
 
     info = recognizer.model_info()
     key_ok, _ = vlm.available()
     with st.expander("🤖 AI pipeline — what is trained, what is verified", expanded=False):
         st.markdown(ui.model_info_html(info, key_ok), unsafe_allow_html=True)
 
-    # Small fictional demo strip — easy to replace tomorrow.
+    # Small fictional demo strip — clicking a thumbnail loads it like an upload.
     demo_dir = Path(__file__).resolve().parent / "assets" / "demo"
     demos = sorted(demo_dir.glob("demo_rx_*.png"))[:6]
     if demos:
         st.markdown("**Demo prescriptions** <span style='color:var(--rx-muted);font-size:0.8rem;'>"
-                    "fictional samples — replace with your own tomorrow</span>",
+                    "fictional samples — click one to use it</span>",
                     unsafe_allow_html=True)
-        demo_cols = st.columns(6)
+        demo_cols = st.columns(6, gap="small")
         for index, (column, path) in enumerate(zip(demo_cols, demos), start=1):
             with column:
-                column.image(path, width=112)
-                column.caption(f"Demo {index:02d}")
+                column.markdown(ui.demo_thumb_html(path, f"Demo {index:02d}", index),
+                                unsafe_allow_html=True)
         st.write("")
 
     with st.expander("🧪 Our CNN — proof demo (single word crop)"):
@@ -151,29 +181,31 @@ def screen_1():
     if st.session_state.crop is None:
         st.warning("Crop is not ready yet — drag a box around the medicine lines, then try again.")
         return
-    # One photo only: the green rectangle shows what the AI will actually read.
-    st.image(ui.draw_crop_box(st.session_state.source, crop_box),
-             caption="Green box = medicine area sent to the AI", width='stretch')
+    # The cropper itself is the only photo. Its green rectangle already shows
+    # exactly what the readers see, so no second preview is rendered.
+    st.caption("Green box = medicine area sent to the AI")
     if st.session_state.read_count >= 5:
         st.caption("Session reading limit reached — Gemini is paused, our CNN still works.")
     if st.button("🔍 Read with both AI models →", type="primary"):
         skip_vlm = st.session_state.read_count >= 5
-        with st.spinner("Finding medicine lines, running our CNN"
-                        + ("…" if skip_vlm else " and Gemini…")):
-            try:
-                st.session_state.analysis = pipeline.analyse(
-                    st.session_state.crop, full_image=st.session_state.source,
-                    skip_vlm=skip_vlm)
-                st.session_state.analysis.pop("images", None)
-                st.session_state.read_count += 1
-                st.session_state.page = 2
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Reading failed: {exc}")
+        loader = st.empty()
+        loader.markdown(ui.loading_html(st.session_state.theme), unsafe_allow_html=True)
+        try:
+            st.session_state.analysis = pipeline.analyse(
+                st.session_state.crop, full_image=st.session_state.source,
+                skip_vlm=skip_vlm)
+            st.session_state.analysis.pop("images", None)
+            st.session_state.read_count += 1
+            st.session_state.page = 2
+            loader.empty()
+            st.rerun()
+        except Exception as exc:
+            loader.empty()
+            st.error(f"Reading failed: {exc}")
 
 
 def screen_2():
-    ui.step_header(2, "২. দুই AI-র পড়া", "Two independent readers, one safety decision — nothing becomes a schedule yet.")
+    ui.step_header(2, "২. দুই AI-র পড়া", "Compare with the paper — nothing becomes a schedule until you confirm.")
     analysis = st.session_state.analysis
     if not analysis_is_current(analysis):
         if analysis:
@@ -188,26 +220,22 @@ def screen_2():
 
     cnn_ok = bool(analysis.get("cnn_available"))
     vlm_error = analysis.get("vlm_error") or ""
-    vlm_ok = not vlm_error
     second_error = analysis.get("vlm2_error") or ""
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Medicine lines found", analysis.get("line_count", len(analysis["items"])))
-    c2.metric("Our CNN", "ready" if cnn_ok else "not trained yet")
-    c3.metric("Reader 1", (analysis.get("vlm_model") or "offline") if vlm_ok else "offline")
-    c4.metric("Reader 2", (analysis.get("vlm2_model") or "offline") if not second_error else "offline")
-    if not vlm_ok:
+    # One short status strip replaces the old four metrics and legend block.
+    status = (
+        f"<span class='rx-chip'>{analysis.get('line_count', len(analysis['items']))} lines</span>"
+        f"<span class='rx-chip {'rx-chip-good' if cnn_ok else 'rx-chip-warn'}'>"
+        f"CNN {'ready' if cnn_ok else 'offline'}</span>"
+        f"<span class='rx-chip'>{escape(str(analysis.get('vlm_model') or 'Reader 1 offline'))}</span>"
+        f"<span class='rx-chip'>{escape(str(analysis.get('vlm2_model') or 'Reader 2 offline'))}</span>"
+    )
+    st.markdown(status, unsafe_allow_html=True)
+    if vlm_error:
         st.warning(f"Reader 1 unavailable: {vlm_error} — continuing with Reader 2 and CNN.")
     if second_error:
         st.warning(f"Reader 2 unavailable: {second_error} — continuing with Reader 1 and CNN.")
-    st.caption("🟢 both readers agree on a verified brand (exact match overrides an "
-               "out-of-distribution CNN guess) · 🟡 one reader confident · "
-               "🔍 readable but unverified (edit the name) · 🔴 disagreement or low confidence. "
-               "Nothing is a schedule until you confirm it.")
-
     if not analysis["items"]:
         st.error("No medicine lines detected. Try a tighter, better-lit crop.")
-    st.caption("Both readings and the DGDA identity check are shown side by side — "
-               "compare them with the paper before confirming.")
     for item in analysis["items"]:
         with st.container(border=True):
             right, card = st.columns([3, 2])
@@ -244,12 +272,16 @@ def screen_2():
                 except (AttributeError, TypeError, ValueError):
                     full_html = fallback_html
                 st.markdown(full_html, unsafe_allow_html=True)
-            if right.button("🚩 Looks wrong — mark RED", key=f"wrong_{item['index']}"):
-                item["colour"] = "RED"
-                item["reason"] = (str(item.get("reason") or "")
-                                  + " User flagged this crop as wrong.").strip()
-                st.session_state.analysis = analysis
-                st.rerun()
+            # A real form button keeps the current reading in session state;
+            # its dedicated test id also lets CSS give it a danger style.
+            with right.form(f"wrong_{item['index']}"):
+                if st.form_submit_button("🚩 Looks wrong — mark RED"):
+                    item["colour"] = "RED"
+                    item["reason"] = (
+                        str(item.get("reason") or "") + " User flagged this line as wrong."
+                    ).strip()
+                    st.session_state.analysis = analysis
+                    st.rerun()
     if st.button("✏️ Confirm / correct each line →", type="primary"):
         brands = load_brands()
         rows = []
@@ -264,6 +296,7 @@ def screen_2():
             rows.append({
                 "index": item["index"],
                 "name": options[0] if options else "— skip this line —",
+                "original_name": item["name"] or "",
                 "options": options,
                 "dose": item["dose_text"],
                 "generic": item["generic"] or "",
@@ -297,29 +330,45 @@ def screen_3():
     brands = load_brands()
     for row in rows:
         with st.container(border=True):
-            c1, c2, c3 = st.columns([3, 3, 2])
+            c1, c2, c3 = st.columns([3, 3, 2], gap="small")
             if row.get("editable"):
                 row["name"] = c1.text_input(
                     "Brand — unverified, type the name from the paper",
                     row["name"], key=f"name_{row['index']}",
                 )
-                c1.caption(f"Reader saw: {row.get('raw_reading') or '—'}")
             else:
                 row["name"] = c1.selectbox("Brand (choose or correct)", row["options"],
                                            index=0, key=f"name_{row['index']}")
             row["dose"] = c2.text_input("Dose (e.g. 1+0+1, BD, সকাল ১ টি)",
                                         row["dose"], key=f"dose_{row['index']}")
-            exact = lookup_exact(row["name"], brands)
-            row["generic"] = exact["generic"] if exact else row["generic"]
+            # A human correction from the paper is the highest-trust signal.
+            # Re-check the badge as well as the generic when the name changes,
+            # otherwise a corrected brand would keep an old RED flag.
+            name = str(row.get("name") or "").strip()
+            if name and name != str(row.get("original_name") or ""):
+                exact = lookup_exact(name, brands)
+                if exact:
+                    row["generic"] = exact.get("generic") or row.get("generic") or ""
+                    row["dgda_record"] = exact
+                    row["colour"] = "GREEN"
+                    row["reason"] = (
+                        "Corrected by you to an exact DGDA-registered brand "
+                        "— still confirm with the prescriber."
+                    )
+                else:
+                    row["colour"] = "UNVERIFIED"
+                    row["reason"] = (
+                        "Corrected by you; name not in the DGDA snapshot — check the box."
+                    )
             record = row.get("dgda_record") or {}
             dar = str(record.get("dar_no") or "").strip()
             provenance = (f"DGDA-registered · DAR {dar}" if dar
                           else "DGDA DAR not matched — verify on the box")
             c3.markdown(
-                f"{colour_badge(row['colour'])}<br><br>"
-                f"Generic: <b>{escape(str(row['generic'] or 'unknown'))}</b><br>"
-                f"<span style='color:var(--rx-muted);font-size:0.85rem;'>"
-                f"{escape(provenance)}</span>",
+                f"<div class='rx-review-badge'>{colour_badge(row['colour'])}"
+                f"<b style='color:var(--rx-text);font-size:0.95rem;'>"
+                f"{escape(str(row['generic'] or 'unknown'))}</b></div>"
+                f"<div class='rx-review-meta'>{escape(provenance)}</div>",
                 unsafe_allow_html=True,
             )
 
@@ -371,19 +420,11 @@ def screen_3():
                 "📅 Add all medicines once (Google Calendar)",
                 sharing.calendar_all_link(schedule, start_date=first_day),
             )
-        st.caption(
-            f"{len(reminder['events'])} separate calendar events in the .ics file. "
-            "The Google Calendar button creates one overview event containing every medicine. "
-            "Times 08:00 / 13:00 / 21:00 are examples — confirm with the prescriber."
-        )
-        for warning in reminder["warnings"]:
-            st.caption(warning)
-
         links = sharing.calendar_links(schedule, start_date=first_day)
         for link in links:
             st.markdown(f"- [📅 {link['medicine']} — {link['slot']}]({link['url']})")
-        st.caption("Each link adds one example day to Google Calendar (Asia/Dhaka); "
-                   "the .ics above repeats for the full course. Clock times are illustrative only.")
+        st.caption("Links add one example day (Asia/Dhaka); the .ics repeats the course. "
+                   "Confirm all times with the prescriber.")
 
         st.subheader("Reminders")
         email_col, call_col, whatsapp_col = st.columns(3)
@@ -415,17 +456,23 @@ def sidebar():
     key_ok, _ = vlm.available()
     with st.sidebar:
         st.markdown(ui.sidebar_header_html(info, key_ok), unsafe_allow_html=True)
-        st.radio("Step", [1, 2, 3], index=st.session_state.page - 1,
-                 format_func=lambda n: {1: "1 · photo", 2: "2 · reading", 3: "3 · schedule"}[n],
-                 key="nav", disabled=True)
-        st.markdown("---")
+        # Disabled radio replaced by a compact one-line step indicator so the
+        # full AI disclosure fits on one screen without scrolling.
+        steps = {1: "photo", 2: "reading", 3: "schedule"}
+        st.markdown(
+            "<div class='rx-step-nav'>"
+            + "".join(
+                f"<span class='{'on' if number == st.session_state.page else ''}'>"
+                f"{number} · {label}</span>" for number, label in steps.items()
+            )
+            + "</div>",
+            unsafe_allow_html=True,
+        )
         toggle_label = "☀️ Switch to light" if theme == "dark" else "🌙 Switch to dark"
         if st.button(toggle_label, key="theme_toggle", use_container_width=True,
                      help="Light is the default. Dark mode is remembered for this session."):
             st.session_state.theme = "Light" if theme == "dark" else "Dark"
             st.rerun()
-        st.caption(f"Theme: {theme.title()} · default light")
-        st.markdown("---")
         choices = ["Normal", "Large", "Extra large"]
         chosen = st.selectbox("Text size", choices,
                               index=choices.index(st.session_state.font_scale),
@@ -433,18 +480,18 @@ def sidebar():
         st.session_state.font_scale = chosen
         with st.expander("Model info", expanded=False):
             st.markdown(ui.model_info_html(info, key_ok), unsafe_allow_html=True)
-        st.markdown("---")
-        st.caption(
+        st.markdown(
+            "<div class='rx-sidebar-foot'>"
             "Built fresh for CoU AI Hackathon 2026. AI: OpenCode (Big Pickle) + "
             "Google Gemini (2 readers) + our own CNN. Groq and RxFusion were "
-            "evaluated but not shipped."
+            "evaluated but not shipped.<br><b>Made by Team Zero-Shot</b></div>",
+            unsafe_allow_html=True,
         )
-        st.markdown('<p class="rx-credit">Made by Team Zero-Shot</p>',
-                    unsafe_allow_html=True)
 
 
 def main():
     init_state()
+    apply_query_actions()
     theme = ui.theme_name(st.session_state.theme)
     ui.inject_css(theme)
     scale = st.session_state.get("font_scale", "Normal")

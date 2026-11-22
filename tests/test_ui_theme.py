@@ -2,7 +2,9 @@
 
 import os
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 from PIL import Image
 
@@ -43,6 +45,25 @@ class TestTheme(unittest.TestCase):
         self.assertNotEqual(light["surface"], dark["surface"])
         self.assertNotEqual(light["accent"], dark["accent"])
 
+    def test_button_ink_and_shadow_follow_the_theme(self):
+        css = ui.CLEAN_CSS_TEMPLATE.substitute(ui.palette("dark"))
+        self.assertIn("--rx-on-accent: #04150C", css)
+        self.assertIn("color: var(--rx-on-accent) !important", css)
+        self.assertIn("--rx-button-shadow:", css)
+        self.assertEqual(ui.palette("light")["on_accent"], "#FFFFFF")
+
+    def test_red_flag_button_has_its_own_danger_style(self):
+        css = ui.CLEAN_CSS_TEMPLATE.substitute(ui.palette("light"))
+        self.assertIn('div[data-testid="stForm"] button', css)
+        self.assertIn("var(--rx-red-fg) !important", css)
+
+    def test_loading_capsule_animation_is_themed(self):
+        html = ui.loading_html("dark")
+        self.assertIn("rx-capsule-morph", html)
+        self.assertIn("#34C97C", html)
+        self.assertIn("Two AI readers are reading", html)
+        self.assertNotIn("$", html)
+
 
 class TestCompactHelpers(unittest.TestCase):
     def test_compact_card_shows_only_high_value_fields(self):
@@ -60,6 +81,16 @@ class TestCompactHelpers(unittest.TestCase):
         html = ui.dgda_compact_html(evil)
         self.assertIn("&lt;script&gt;", html)
         self.assertNotIn("<script>x</script>", html)
+
+    def test_demo_thumb_click_loads_it_like_an_upload(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "demo_rx_01.png"
+            Image.new("RGB", (12, 8), "white").save(path)
+            html = ui.demo_thumb_html(path, "Demo 01", 1)
+        self.assertIn('href="?demo=demo_rx_01.png"', html)
+        self.assertIn('target="_self"', html)
+        self.assertIn("data:image/png;base64,", html)
+        self.assertIn("click to use", html)
 
     def test_crop_box_is_drawn_on_the_original_size(self):
         image = Image.new("RGB", (100, 80), "white")

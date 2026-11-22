@@ -19,7 +19,7 @@ pinned: false
 
 **Hackathon:** CoU AI Hackathon 2026 · Healthcare & Wellbeing  
 **Team:** Solo · **Member:** M M Sadikul Islam Jesan  
-**Status (23 Nov 2026):** Three modern screens with **light (default) / dark themes via a sidebar icon toggle**, two independent Gemini photo readers, our own fine-tuned CNN as safety veto (set aside only when both readers make an exact 100 match to the same DGDA brand), soft UNVERIFIED badge, rear-camera capture, 92% crop default with one bordered-original preview, six small fictional demo Rx thumbnails, compact DGDA cards with **More info**, calendar links, one-click all-medicine Google event, .ics and prepared WhatsApp text all work. Brand identity is now checked against a **committed DGDA Allopathic snapshot** (41,655 source rows → 23,804 verified entries with DAR No; 888 conflicting keys quarantined). **GREEN requires a ≥95 normalised match from both readers** — a fuzzy-only match is capped at YELLOW. Our CNN was trained on Kaggle T4: **validation 0.9577, test 0.9590 (748/780)** across 78 brands (clean word crops — real-photo numbers are reported separately). Full log: [`results/kaggle_training_log.txt`](results/kaggle_training_log.txt) · proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
+**Status (23 Nov 2026):** Three modern screens with **light (default) / dark themes via a sidebar icon toggle**, two independent Gemini photo readers, our own fine-tuned CNN as safety veto (set aside only when both readers make an exact 100 match to the same DGDA brand), soft UNVERIFIED badge, rear-camera capture, 92% crop default with the cropper as the **only** photo preview, six **click-to-use** fictional demo Rx thumbnails, a CSS capsule animation while the readers work, a one-screen compact sidebar, compact DGDA cards with **More info**, calendar links, one-click all-medicine Google event, .ics and prepared WhatsApp text all work. Brand identity is now checked against a **committed DGDA Allopathic snapshot** (41,655 source rows → 23,804 verified entries with DAR No; 888 conflicting keys quarantined). **GREEN requires a ≥95 normalised match from both readers** — a fuzzy-only match is capped at YELLOW. Our CNN was trained on Kaggle T4: **validation 0.9577, test 0.9590 (748/780)** across 78 brands (clean word crops — real-photo numbers are reported separately). Full log: [`results/kaggle_training_log.txt`](results/kaggle_training_log.txt) · proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
 ---
 
@@ -41,7 +41,7 @@ RxBondhu reads the medicine area with **two AI models**, checks every name again
 7. **Dose parser** — `1+0+1`, `BD`, `TDS`, `HS`, Bangla dose notes → schedule.
 8. **Safety check** — two brands with the same generic trigger a non-blocking duplicate-generic warning; ingredient order in combinations is canonicalised so `Amlodipine + Atenolol` and `Atenolol + Amlodipine` match. No mg ceiling is claimed.
 8b. **DGDA record card** — Screen 2 shows a compact generic / DAR No / strength / form card beside each line and a **More info** expander with company, source, access date and full record; Screen 3 shows a compact “DGDA-registered · DAR …” note. DGDA has no indication field, so the UI never claims “what it works for”, price or clock time.
-9. **Modern light + dark UI** — 3 guided screens, CSS variables with **light default and sidebar 🌙/☀️ toggle**, compact model chips plus a details expander, small fictional demo Rx thumbnails in `assets/demo/` (replaceable), “Made by Team Zero-Shot” credit, cards with subtle CSS 3D tilt, and a locally bundled Three.js capsule hero (`static/three.min.js`).
+9. **Modern light + dark UI** - 3 guided screens, CSS variables with **light default and sidebar 🌙/☀️ toggle** (dark mode uses softer emerald and dark button ink for contrast), one-screen compact sidebar with the full AI disclosure, compact model chips plus a details expander, small **click-to-use** fictional demo Rx thumbnails in `assets/demo/` (replaceable), an animated two-tone capsule while the models read, "Made by Team Zero-Shot" credit, cards with subtle CSS 3D tilt, and a locally bundled Three.js capsule hero (`static/three.min.js`).
 10. **Bangla schedule + audio** — Bangla table (no colour column), always-visible Bangla summary and spoken summary (MMS-TTS, gTTS backup).
 11. **Calendar & sharing** — one-click Google Calendar links (Asia/Dhaka, example 08:00/13:00/21:00), a repeating `.ics`, a new **Add all medicines once** button that opens one Google Calendar overview event, working prepared WhatsApp text, and disabled **Email reminder / Call reminder — Coming soon** placeholders. The app never sends messages or books events for you.
 
@@ -86,7 +86,7 @@ streamlit run app.py
 
 `GROQ_API_KEY` in `.env.example` is a placeholder for the rejected bake-off only — the app never calls Groq. Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the readers only.
 
-Tests (no network needed, 93 tests across 14 files):
+Tests (no network needed, 97 tests across 14 files):
 
 ```bash
 .\venv\Scripts\python.exe -m unittest discover -s tests -q
