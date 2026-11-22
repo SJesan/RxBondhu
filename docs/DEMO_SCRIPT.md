@@ -4,9 +4,10 @@ Practice this exact flow. Keep the video/voice calm — judges care about safety
 
 **Delivery plan (confirmed 22 Nov):** primary = local `streamlit run app.py`;
 secondary = live link `https://rxbondhu.streamlit.app` if the venue network allows
-(it redirected to a Streamlit sign-in page for anonymous checks on 23 Nov; fix
-the Cloud sharing setting to Public and confirm 200 on `/_stcore/health` before
-the deadline — until then do not rely on it); backup = this exact ≤3-min run
+(**verified public 23 Nov**: Cloud dashboard says “public and searchable” and the
+health endpoint returns 200 after the normal auth-cookie handshake; a plain
+no-cookie checker loops on 303, which is Streamlit platform behaviour, not a
+private app); backup = this exact ≤3-min run
 recorded as an unlisted MP4 by Rakin (still pending). Clean primary sample:
 `samples/sample_ui_smoke.png`. Stress sample: `images.jpg`.
 

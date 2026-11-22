@@ -13,7 +13,7 @@
 **Live link:** https://rxbondhu.streamlit.app
 **Repo:** https://github.com/SJesan/RxBondhu
 
-**Demo plan (confirmed 22 Nov, updated 23 Nov):** local `streamlit run app.py` as primary, ≤3-min unlisted backup video by **Rakin** (pending), plus the live link above if the venue network allows. **Live-link fix mandatory:** anonymous checks redirected to Streamlit sign-in on 23 Nov; there is no auth code in the repo, so set the Streamlit Cloud app to **Public / anyone with the link**, redeploy, and confirm `https://rxbondhu.streamlit.app/_stcore/health` returns 200 before the deadline. Local demo stays primary until that check passes.
+**Demo plan (confirmed 22 Nov, updated 23 Nov):** local `streamlit run app.py` as primary, ≤3-min unlisted backup video by **Rakin** (pending), plus the live link above if the venue network allows. **Live link verified public on 23 Nov:** Cloud dashboard says “This app is public and searchable”, and with a cookie jar `https://rxbondhu.streamlit.app/_stcore/health` returns 200 after Streamlit's standard 303 → auth-cookie → 200 handshake. A no-cookie checker loops on 303 for *all* public Streamlit apps, so use a real browser or `curl -L -c/-b cookies` to check. No app-level login or test credentials.
 
 **Organiser update (22 Nov 6:07 PM):**
 - GitHub account collection form (team leader, once): https://docs.google.com/forms/d/e/1FAIpQLSeot5-TccNHNZ-HWqXcYFNZQmAF2iNT7lumJ3JgCG510sKXLg/viewform — deadline **23 Nov 2026, 11:00 PM**. Fields: official team name, GitHub-linked email, contact phone. No project content.
@@ -34,7 +34,7 @@
 - [x] Real-handwriting table filled from 10 samples / 48 lines (no invented numbers) — see [`docs/EVALUATION.md`](EVALUATION.md) and [`docs/HANDWRITTEN_TEST_GUIDE.md`](HANDWRITTEN_TEST_GUIDE.md)
 - [x] GitHub Actions badge green after the Phase 0 push (commit `f036b6e`, CI #30)
 - [x] CI green again after the final DGDA push (commit `b24443a`, CI #31)
-- [ ] Live Streamlit app confirmed public (anonymous `/_stcore/health` = 200)
+- [x] Live Streamlit app confirmed public (Cloud: “public and searchable”; `/_stcore/health` = 200 with the standard auth-cookie handshake, 23 Nov)
 - [x] DGDA export downloaded once, sha256 + date recorded, filtered snapshot committed, no runtime fetch
 - [ ] Backup video recorded by **Rakin** (≤3 min, unlisted — still pending 23 Nov)
 - [ ] Rear-camera tab tested on a real phone (not yet tested; upload fallback remains)

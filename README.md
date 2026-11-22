@@ -116,7 +116,7 @@ The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `tr
 ## 7. Live link and demo video
 
 - Code (public repo): **https://github.com/SJesan/RxBondhu** ✅
-- Live app (free, Streamlit Community Cloud): **https://rxbondhu.streamlit.app** — see [`docs/DEPLOY.md`](docs/DEPLOY.md). **Action pending (23 Nov):** anonymous checks redirected to `/-/login`; there is no auth code in the repo, so this is a Streamlit Cloud sharing setting. Fix to **Public / anyone with the link** and verify `/_stcore/health` returns 200 before the deadline. Local demo remains primary until confirmed.
+- Live app (free, Streamlit Community Cloud): **https://rxbondhu.streamlit.app** — see [`docs/DEPLOY.md`](docs/DEPLOY.md). **Verified public (23 Nov):** the Cloud dashboard says “This app is public and searchable”; its auth gateway performs a 303 → cookie → 200 handshake (real browsers do this automatically), and `curl -L -c/-b cookies https://rxbondhu.streamlit.app/_stcore/health` returns **200**. There is no app-level login and no test credentials. Local demo remains primary in case the venue blocks the domain.
 - Demo video (optional backup, max 3 min): script ready in [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md); Rakin's recording still pending.
 - No login in the app code — **no test credentials needed**.
 
