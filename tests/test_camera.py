@@ -1,8 +1,12 @@
 import base64
 import io
+import os
+import sys
 import unittest
 
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rxbondhu.camera import decode_capture
 

@@ -1,11 +1,15 @@
 import io
 import json
+import os
+import sys
 import unittest
 from unittest.mock import patch
 
 from PIL import Image
 
-from rxbondhu import groq_vlm
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from rxbondhu import groq_vlm  # noqa: E402
 
 
 def _response(content: str):

@@ -1,7 +1,11 @@
+import os
+import sys
 import unittest
 from unittest.mock import patch
 
-from rxbondhu import vlm
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from rxbondhu import vlm  # noqa: E402
 
 
 class TestReaderPrompt(unittest.TestCase):

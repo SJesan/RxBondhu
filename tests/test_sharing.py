@@ -1,8 +1,12 @@
+import os
+import sys
 import unittest
 from datetime import date
 from urllib.parse import parse_qs, urlparse
 
-from rxbondhu import sharing
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from rxbondhu import sharing  # noqa: E402
 
 
 SCHEDULE = {
