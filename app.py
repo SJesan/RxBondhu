@@ -324,8 +324,9 @@ def screen_3():
         for link in links:
             st.markdown(f"- [📅 {link['medicine']} — {link['slot']}]({link['url']})")
         st.caption("Each link adds one example day to Google Calendar (Asia/Dhaka); "
-                   "the .ics above repeats for the full course. Times 08:00 / 13:00 / 21:00 "
-                   "are examples — confirm with the prescriber. Use the .ics for all medicines at once.")
+                   "the .ics above repeats for the full course. Clock times inside those "
+                   "calendar files are illustrative only — confirm with the prescriber. "
+                   "Use the .ics for all medicines at once.")
         st.markdown(f"[📱 Prepare WhatsApp message]({sharing.whatsapp_link(schedule)})")
         st.caption("Opens WhatsApp with a prepared Bangla message — the app never sends it for you.")
         with st.expander("Roadmap / future work"):
