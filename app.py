@@ -4,17 +4,17 @@
 Run:  streamlit run app.py
 """
 
-import io
 import os
 import sys
 import tempfile
+from datetime import date, timedelta
 
 import streamlit as st
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from rxbondhu import bangla, pipeline, recognizer, reminders, tts, ui, vlm  # noqa: E402
+from rxbondhu import bangla, camera, pipeline, recognizer, reminders, sharing, tts, ui, vlm  # noqa: E402
 from rxbondhu.lexicon import load_brands, lookup_exact, suggest_brands  # noqa: E402
 from rxbondhu.state_guard import analysis_is_current, confirmed_rows_are_current  # noqa: E402
 
@@ -47,14 +47,28 @@ def reset_reading():
     st.rerun()
 
 
-def crop_ui(image: Image.Image) -> Image.Image:
-    """Use streamlit-cropper when available, otherwise a simple full image."""
+def crop_ui(image: Image.Image, coverage: int = 92, key: str = "crop") -> Image.Image:
+    """Crop the medicine lines only, starting at ~92% of the photo by default."""
+    already_cropped = st.checkbox(
+        "Already cropped — use the full image (no crop box)",
+        value=False, key=f"already_{key}",
+    )
+    if already_cropped:
+        st.caption("Using the full image as the medicine area.")
+        return image
     try:
         from streamlit_cropper import st_cropper
-        return st_cropper(image, realtime_update=True, box_color="#2E8B57",
-                          aspect_ratio=None, return_type="image")
-    except Exception:
-        st.info("Cropper add-on unavailable — using the full image as the crop.")
+        inset_x = int(image.width * (100 - coverage) / 200)
+        inset_y = int(image.height * (100 - coverage) / 200)
+        default_coords = (inset_x, image.width - inset_x,
+                          inset_y, image.height - inset_y)
+        return st_cropper(
+            image, realtime_update=True, default_coords=default_coords,
+            box_color="#2E8B57", aspect_ratio=None, return_type="image",
+            key=f"cropper_{key}_{coverage}",
+        )
+    except Exception as exc:
+        st.info(f"Cropper unavailable ({exc}) — using the full image as the crop.")
         return image
 
 
@@ -71,16 +85,23 @@ def screen_1():
         if uploaded:
             st.session_state.source = Image.open(uploaded).convert("RGB")
     with tab_camera:
-        camera = st.camera_input("Take a photo")
-        if camera:
-            st.session_state.source = Image.open(io.BytesIO(camera.getvalue())).convert("RGB")
+        st.caption("Rear camera preferred for prescriptions. Camera access is optional — "
+                   "the upload tab works on every device.")
+        photo = camera.capture()
+        if photo is not None:
+            st.session_state.source = photo
+            st.image(photo, caption="Captured photo — crop the medicine lines below", width='stretch')
 
     if st.session_state.source is None:
         st.info("No image yet. Demo without a photo? Add a sample in `samples/` and refresh.")
         return
 
     st.subheader("Crop the medicine area")
-    st.session_state.crop = crop_ui(st.session_state.source)
+    coverage = st.slider(
+        "Medicine-area coverage (%) — start wide, then trim", 70, 98, 92, 2,
+        key="coverage", help="92% means a 4% margin on each side of the photo.",
+    )
+    st.session_state.crop = crop_ui(st.session_state.source, coverage=coverage)
     if st.session_state.crop is None:
         st.warning("Crop is not ready yet — drag a box around the medicine lines, then try again.")
         return
@@ -273,6 +294,21 @@ def screen_3():
         )
         for warning in reminder["warnings"]:
             st.caption(warning)
+
+        st.subheader("Calendar & sharing")
+        first_day = st.date_input("First reminder date", value=date.today() + timedelta(days=1),
+                                  key="first_day")
+        links = sharing.calendar_links(schedule, start_date=first_day)
+        for link in links:
+            st.markdown(f"- [📅 {link['medicine']} — {link['slot']}]({link['url']})")
+        st.caption("Each link adds one example day to Google Calendar (Asia/Dhaka); "
+                   "the .ics above repeats for the full course. Times 08:00 / 13:00 / 21:00 "
+                   "are examples — confirm with the prescriber. Use the .ics for all medicines at once.")
+        st.markdown(f"[📱 Prepare WhatsApp message]({sharing.whatsapp_link(schedule)})")
+        st.caption("Opens WhatsApp with a prepared Bangla message — the app never sends it for you.")
+        with st.expander("Roadmap / future work"):
+            st.caption("Voice-call reminders and email reminders are future work: they need a "
+                       "verified sender/number, user consent and a paid service. They are not built here.")
 
         st.markdown("**Per-medicine audio**")
         for index, med in enumerate(schedule["medicines"]):

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RxBondhu camera</title>
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; color:#0B4B2A; }
+  .wrap { border:1px solid #CDE8D5; border-radius:16px; padding:10px; background:#F7FCF8; }
+  video { width:100%; max-height:320px; border-radius:12px; background:#10231A; object-fit:cover; }
+  .row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  button { border:0; border-radius:999px; padding:9px 16px; font-weight:700; cursor:pointer;
+           background:#0E6B3C; color:white; }
+  button.alt { background:white; color:#0E6B3C; border:1px solid #0E6B3C; }
+  .note { font-size:0.82rem; color:#456553; margin:6px 2px 0; }
+  .err { color:#9A2020; font-size:0.85rem; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <video id="video" autoplay playsinline muted></video>
+  <div class="row">
+    <button id="capture">📸 Capture photo</button>
+    <button id="flip" class="alt">🔄 Flip camera</button>
+  </div>
+  <div class="note">Uses the rear camera on phones. Nothing is uploaded until you press Capture.</div>
+  <div id="err" class="err"></div>
+</div>
+<script>
+(function () {
+  var video = document.getElementById('video');
+  var err = document.getElementById('err');
+  var stream = null;
+  var facing = 'environment';
+
+  function post(type, data) {
+    var msg = Object.assign({ isStreamlitMessage: true, type: type }, data || {});
+    window.parent.postMessage(msg, '*');
+  }
+  function ready() { post('streamlit:componentReady', { apiVersion: 1 }); }
+
+  function stop() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
+
+  function start() {
+    stop();
+    err.textContent = '';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      err.textContent = 'Camera not available here — please use the upload tab.';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: facing } }, audio: false
+    }).then(function (s) {
+      stream = s; video.srcObject = s; return video.play();
+    }).catch(function (e) {
+      err.textContent = 'Camera blocked or unavailable (' + (e && e.name || 'error') +
+                        ') — please use the upload tab.';
+    });
+  }
+
+  document.getElementById('capture').onclick = function () {
+    if (!stream) { err.textContent = 'Start the camera first.'; return; }
+    var canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    var data = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+    post('streamlit:setComponentValue', { value: data, dataType: 'json' });
+  };
+  document.getElementById('flip').onclick = function () {
+    facing = facing === 'environment' ? 'user' : 'environment';
+    start();
+  };
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'streamlit:render') { if (!stream) { start(); } }
+  });
+  window.addEventListener('beforeunload', stop);
+  ready();
+  start();
+})();
+</script>
+</body>
+</html>
