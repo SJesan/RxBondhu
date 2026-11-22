@@ -1,9 +1,13 @@
 """Fuse two AI readers plus our CNN into GREEN / YELLOW / UNVERIFIED / RED.
 
-Safety rules (never relaxed):
+Safety rules:
 - A brand outside the verified lexicon is never GREEN and never auto-accepted.
 - RED/YELLOW/UNVERIFIED lines always need a human confirmation step.
-- The CNN is a safety veto and proof of an own trained model, not a free pass.
+- The CNN is a safety veto and proof of an own trained model, except when both
+  readers independently make an EXACT (100) match to the same DGDA brand. That
+  exception prevents the 78-class word-crop CNN from red-flagging real photos
+  it was never trained on (e.g. Pantonix, Lysivin); final confirmation is still
+  mandatory on Screen 3.
 """
 
 import os
@@ -21,6 +25,9 @@ CNN_LOW = 0.35
 # safety policy, not tuned. The env override is for reproducible before/after
 # evaluator runs; the app never sets it.
 VLM_SCORE = int(os.getenv("RX_VLM_SCORE", "90"))
+# Only a perfect normalised match from BOTH readers can override a confident
+# CNN guess. Near-exact (95-99) dual matches keep the veto.
+EXACT_MATCH_SCORE = 100
 
 
 def _close_spelling(first: str, second: str) -> bool:
@@ -94,10 +101,12 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
     both_agree = both_confident and first["brand"] == second["brand"]
     min_match = min(first["score"], second["score"])
     both_green_eligible = both_agree and min_match >= GREEN_SCORE
+    # An exact dual match is the only case where the CNN veto is set aside.
+    dual_exact = bool(both_green_eligible and min_match >= EXACT_MATCH_SCORE)
     one_confident = bool(first["brand"] or second["brand"]) and not both_confident
 
     cnn_contradiction = bool(
-        cnn_confident and names and cnn_row["brand"] not in names
+        cnn_confident and names and cnn_row["brand"] not in names and not dual_exact
     )
 
     # A readable but unverified name must stay UNVERIFIED (editable), not RED.
@@ -128,7 +137,13 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         chosen, generic = next(iter(names)), first["generic"] or second["generic"]
     elif both_green_eligible:
         colour = "GREEN"
-        reason = "Two independent readers agree on a verified brand (score >= 95)"
+        if dual_exact and cnn_confident and names and cnn_row["brand"] not in names:
+            # Honest disclosure: the CNN is out of distribution here, so its
+            # guess is ignored rather than silently dropped from the UI.
+            reason = ("Two readers agree on an exact verified brand; "
+                      "CNN guess is outside its training set")
+        else:
+            reason = "Two independent readers agree on a verified brand (score >= 95)"
         chosen = next(iter(names))
         generic = first["generic"] or second["generic"]
     elif both_agree:

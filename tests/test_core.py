@@ -128,6 +128,22 @@ class TestFusion(unittest.TestCase):
         self.assertEqual(result["generic"], "Esomeprazole")
         self.assertEqual(result["min_match_score"], 100)
 
+    def test_exact_dual_match_overrides_out_of_distribution_cnn(self):
+        # Real-photo case: CNN's 78-class word model guesses "Napa" at high
+        # confidence, but both readers independently read the exact DGDA brand.
+        result = fuse({"brand": "Napa", "confidence": 0.92}, "Tab Pantonix 20mg",
+                      self.brands, second_vlm_text="Pantonix 20")
+        self.assertEqual(result["colour"], "GREEN")
+        self.assertEqual(result["name"], "Pantonix")
+        self.assertEqual(result["min_match_score"], 100)
+        self.assertIn("outside its training set", result["reason"])
+
+    def test_near_exact_dual_match_keeps_cnn_veto(self):
+        result = fuse({"brand": "Napa", "confidence": 0.92}, "Maxpo", self.brands,
+                      second_vlm_text="Maxpo")
+        self.assertEqual(result["colour"], "RED")
+        self.assertIn("CNN disagrees", result["reason"])
+
     def test_yellow_when_only_cnn_confident(self):
         result = fuse({"brand": "Napa", "confidence": 0.82}, "", self.brands)
         self.assertEqual(result["colour"], "YELLOW")

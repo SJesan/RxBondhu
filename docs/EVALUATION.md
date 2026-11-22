@@ -170,7 +170,8 @@ name-accuracy gate, so no Groq key is needed to run the app.
 
 **Decision:** two independent Gemini models are the photo readers.
 `gemini-3.5-flash-lite` is reader 1, `gemini-3.1-flash-lite` is reader 2, and our
-EfficientNet-B0 stays as a safety veto. If reader 1 is offline, reader 2's lines
+EfficientNet-B0 stays as a safety veto except for an exact dual-DGDA match
+(§2e). If reader 1 is offline, reader 2's lines
 are used for the row count but are **never copied into both readers' opinions** —
 a unit test proves this cannot fabricate a GREEN.
 
@@ -211,8 +212,9 @@ transfers to photos. Contact sheets are in gitignored `results/crop_dump/`.
 
 ## 2c. v2 end-to-end on the same 10 images (23 Nov 2026)
 
-Full pipeline (`tools/evaluate_handwritten.py`), two Gemini readers + CNN veto +
-lexicon + fusion, no human correction applied. Logs:
+Full pipeline (`tools/evaluate_handwritten.py`), two Gemini readers + CNN veto
+(with the exact-dual-match override described in §2e) + lexicon + fusion, no
+human correction applied. Logs:
 `results/handwritten_v2_test_log.csv` and `results/handwritten_v2_summary.json`.
 
 | Metric | v1 (one reader) | v2 (two readers) |
@@ -268,8 +270,8 @@ this is a controlled before/after, not a comparison between two different API ru
 **Gate result:** unsafe-GREEN **fell** from 0.1429 to 0, so the kill switch was
 **not** triggered. Combined accuracy dropped by 2/47 because fuzzy matches no
 longer silently become an approved brand — the intended trade-off. Every wrong
-name was still caught (1.0); over-flag rose to 0.4167, which is conservative and
-safe.
+name was still caught (1.0); over-flag rose to 0.4167, which was conservative and
+safe. §2e later reduced it to 0.1250 without losing the safety gates.
 
 Logs: `results/handwritten_before_dgda_log.csv` /
 `results/handwritten_before_dgda_summary.json` and
@@ -289,6 +291,38 @@ was chosen on the dev split:
 
 Logs: `results/threshold85_dev_summary.json`, `results/threshold90_dev_summary.json`,
 `results/threshold90_holdout_summary.json`.
+
+### 2e. Exact-dual-match CNN override (23 Nov 2026)
+
+A live demo photo showed 4/4 RED rows: two were genuine spelling disagreements
+(`LORNO C` vs `Lorno 4`, `REZENTUS` vs `Relentus`) and must stay RED; two were
+exact dual DGDA matches (`Pantonix`, `Lysivin`) red-flagged only because the
+78-class word-crop CNN confidently guessed `Az`. Those brands are outside the
+CNN's training classes, so the veto was measuring the model's blind spot, not a
+prescription conflict.
+
+**Policy change (owner-approved):** a confident CNN contradiction is ignored
+only when **both** readers independently score **100** on the **same** DGDA
+brand. Near-exact 95–99 matches, fuzzy matches, spelling disagreements and
+single-reader rows keep the veto. The reason text now says the CNN guess is
+"outside its training set" instead of hiding it. Screen 3 confirmation remains
+mandatory, so this is not auto-acceptance of a prescription.
+
+The same 10 images and the same cached real Gemini responses were re-scored;
+only this categorical rule changed:
+
+| Configuration | GREEN lines | Unsafe-GREEN | Combined name accuracy | Catch rate | Over-flag |
+|---|---|---|---|---|---|
+| Strict CNN veto (previous) | 12 | 0/12 (0.0000) | 24/47 (0.5106) | 1.0 | 10/24 (0.4167) |
+| **Exact-dual override (shipped)** | **19** | **0/19 (0.0000)** | 24/47 (0.5106) | **1.0** | **3/24 (0.1250)** |
+
+**Gate result:** unsafe-GREEN stayed at 0 and catch rate stayed at 1.0, while
+over-flagging of correct lines fell from 0.4167 to 0.1250. No score threshold
+was tuned on the test split. Logs: `results/handwritten_v2_summary.json` (before)
+and `results/handwritten_override_summary.json` / `results/handwritten_override_log.csv`
+(after). Remaining risk, disclosed: if both photo readers independently
+hallucinate the *same* real DGDA brand on an unreadable line, this rule will not
+catch it — the final human check is the backstop.
 
 ### DGDA source and provenance
 
@@ -313,7 +347,9 @@ Logs: `results/threshold85_dev_summary.json`, `results/threshold90_dev_summary.j
 
 Note: the CNN's 0/47 on these real photos is genuine — its 78 classes are the
 Kaggle word-crop brands and none of the answer-key brands fall in that set. It
-is used as a veto/proof, not as the general reader.
+is used as a veto/proof, not as the general reader; §2e documents the narrow
+exact-dual-match override that keeps this blind spot from red-flagging every
+real line.
 
 ## 3. Safety checks demonstrated
 

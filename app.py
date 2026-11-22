@@ -173,7 +173,8 @@ def screen_2():
         st.warning(f"Reader 1 unavailable: {vlm_error} — continuing with Reader 2 and CNN.")
     if second_error:
         st.warning(f"Reader 2 unavailable: {second_error} — continuing with Reader 1 and CNN.")
-    st.caption("🟢 both readers agree on a verified brand · 🟡 one reader confident · "
+    st.caption("🟢 both readers agree on a verified brand (exact match overrides an "
+               "out-of-distribution CNN guess) · 🟡 one reader confident · "
                "🔍 readable but unverified (edit the name) · 🔴 disagreement or low confidence. "
                "Nothing is a schedule until you confirm it.")
 

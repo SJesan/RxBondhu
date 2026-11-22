@@ -19,7 +19,7 @@ pinned: false
 
 **Hackathon:** CoU AI Hackathon 2026 · Healthcare & Wellbeing  
 **Team:** Solo · **Member:** M M Sadikul Islam Jesan  
-**Status (23 Nov 2026):** Three screens, two independent Gemini photo readers, our own fine-tuned CNN as safety veto, soft UNVERIFIED badge, rear-camera capture, 92% crop default, calendar links, .ics and prepared WhatsApp text all work. Brand identity is now checked against a **committed DGDA Allopathic snapshot** (41,655 source rows → 23,804 verified entries with DAR No; 888 conflicting keys quarantined). **GREEN requires a ≥95 normalised match from both readers** — a fuzzy-only match is capped at YELLOW. Our CNN was trained on Kaggle T4: **validation 0.9577, test 0.9590 (748/780)** across 78 brands (clean word crops — real-photo numbers are reported separately). Full log: [`results/kaggle_training_log.txt`](results/kaggle_training_log.txt) · proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
+**Status (23 Nov 2026):** Three screens, two independent Gemini photo readers, our own fine-tuned CNN as safety veto (set aside only when both readers make an exact 100 match to the same DGDA brand), soft UNVERIFIED badge, rear-camera capture, 92% crop default, calendar links, .ics and prepared WhatsApp text all work. Brand identity is now checked against a **committed DGDA Allopathic snapshot** (41,655 source rows → 23,804 verified entries with DAR No; 888 conflicting keys quarantined). **GREEN requires a ≥95 normalised match from both readers** — a fuzzy-only match is capped at YELLOW. Our CNN was trained on Kaggle T4: **validation 0.9577, test 0.9590 (748/780)** across 78 brands (clean word crops — real-photo numbers are reported separately). Full log: [`results/kaggle_training_log.txt`](results/kaggle_training_log.txt) · proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
 ---
 
@@ -33,10 +33,10 @@ RxBondhu reads the medicine area with **two AI models**, checks every name again
 
 1. **Photo + crop** — upload or use the phone rear camera; default crop covers 92% of the photo with a coverage slider and an "already cropped" option.
 2. **Find lines** — OpenCV groups handwritten words into lines; each review row is one medicine line.
-3. **Three readings** — two independent Gemini models read the photo; our own fine-tuned CNN reads word crops as a safety veto and proof of an own model.
+3. **Three readings** — two independent Gemini models read the photo; our own fine-tuned CNN reads word crops as a safety veto and proof of an own model. An exact dual-DGDA match overrides an out-of-distribution CNN guess; spelling disagreements stay RED.
 4. **DGDA-registered brand matching** — a committed snapshot of the official DGDA Allopathic export (`data/dgda_brands.csv`, 23,804 verified brand→generic entries with DAR No, source URL and access date) plus 10 box/pharmacy-checked rows. Bulk/API rows and 888 conflicting generic identities are quarantined in `data/dgda_conflicts.csv`. No runtime network call; `data/dgda_source.json` records the sha256 and access date.
    **Wording limit:** “DGDA-registered” is an identity check against that export — it is not dose advice and not a medical approval. A name missing from the export is **UNVERIFIED, never “not approved”**.
-5. **Fusion colours** — GREEN = both readers agree on the same verified brand **with ≥95 normalised match**; YELLOW = one reader confident, or both agree but only fuzzy (85–94.9); 🔍 UNVERIFIED = readable with no reliable DGDA candidate (editable, never GREEN); RED = direct disagreement / close spelling disagreement / low confidence / user flag.
+5. **Fusion colours** — GREEN = both readers agree on the same verified brand **with ≥95 normalised match**; an exact (100) dual match also overrides a CNN veto (the 78-class CNN is out of distribution on real prescriptions); YELLOW = one reader confident, or both agree but only fuzzy (85–94.9); 🔍 UNVERIFIED = readable with no reliable DGDA candidate (editable, never GREEN); RED = direct disagreement / close spelling disagreement / CNN contradiction unless there is an exact dual match / low confidence / user flag.
 6. **Review screen** — user confirms/fixes every name and dose. Nothing becomes a schedule before this.
 7. **Dose parser** — `1+0+1`, `BD`, `TDS`, `HS`, Bangla dose notes → schedule.
 8. **Safety check** — two brands with the same generic trigger a non-blocking duplicate-generic warning; ingredient order in combinations is canonicalised so `Amlodipine + Atenolol` and `Atenolol + Amlodipine` match. No mg ceiling is claimed.
@@ -45,7 +45,7 @@ RxBondhu reads the medicine area with **two AI models**, checks every name again
 10. **Bangla schedule + audio** — Bangla table and spoken summary (MMS-TTS, gTTS backup).
 11. **Calendar & sharing** — one-click Google Calendar links (Asia/Dhaka, example 08:00/13:00/21:00), a repeating `.ics`, and prepared WhatsApp text. The app never sends messages or books events for you.
 
-Flow: `photo → crop → segment.py → (vlm.py reader 1 + vlm.py reader 2 + recognizer.py CNN veto) → lexicon.py → fusion.py → review → dose_parser.py → safety.py → bangla.py/tts.py`.
+Flow: `photo → crop → segment.py → (vlm.py reader 1 + vlm.py reader 2 + recognizer.py CNN veto, overridden only by an exact dual-DGDA match) → lexicon.py → fusion.py → review → dose_parser.py → safety.py → bangla.py/tts.py`.
 
 ## 3. Tech stack, models, APIs, datasets
 
@@ -122,4 +122,4 @@ The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `tr
 
 ## Safety and limits
 
-RED items say "please confirm with your pharmacist". UNVERIFIED names are shown as editable defaults, never GREEN and never auto-accepted; **UNVERIFIED means “not in our verified reference”, never “not approved”** — only DGDA determines approval. The DGDA card gives recorded identity fields only. GREEN needs ≥95 from both readers plus no CNN contradiction; a fuzzy-only match is capped at YELLOW. The app covers a filtered snapshot and limited handwriting styles — that is why human confirmation is built in. See [`docs/EVALUATION.md`](docs/EVALUATION.md) for the 0.9590 word-crop accuracy and the separate real-photo numbers.
+RED items say "please confirm with your pharmacist". UNVERIFIED names are shown as editable defaults, never GREEN and never auto-accepted; **UNVERIFIED means “not in our verified reference”, never “not approved”** — only DGDA determines approval. The DGDA card gives recorded identity fields only. GREEN needs ≥95 from both readers; a CNN contradiction still blocks GREEN unless both readers make an exact (100) match to the same DGDA brand, in which case the out-of-distribution CNN guess is disclosed in the reason text and ignored. A fuzzy-only match is capped at YELLOW. The app covers a filtered snapshot and limited handwriting styles — that is why human confirmation is built in on Screen 3. See [`docs/EVALUATION.md`](docs/EVALUATION.md) for the 0.9590 word-crop accuracy and the separate real-photo numbers.

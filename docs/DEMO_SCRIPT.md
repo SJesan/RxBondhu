@@ -23,11 +23,11 @@ For the CNN proof, open the expander and read one clean word crop: held-out word
 Press **Read with both AI models**. Point to:
 - **one review row per medicine line** (not per word), with the line crop on the left,
 - **Reader 1 `gemini-3.5-flash-lite`** and **Reader 2 `gemini-3.1-flash-lite`** reading the photo independently,
-- our own EfficientNet-B0 CNN reading word crops as a **safety veto**, trained by us on 4,680 labelled word images,
+- our own EfficientNet-B0 CNN reading word crops as a **safety veto**, trained by us on 4,680 labelled word images; an exact dual-DGDA match overrides its out-of-distribution guess and the reason says so,
 - the GREEN / YELLOW / UNVERIFIED / RED badge and the one-line reason,
 - the **DGDA তথ্য card** on the right: brand, generic, strength, form, company and **DAR No**. Say “DGDA-registered means this identity is in the official Allopathic export we checked on 23 Nov — it is not dose advice, and a missing name is only UNVERIFIED, never ‘not approved’.”
 
-Honest line: "GREEN needs both readers to agree with a 95+ match on a DGDA-registered brand. A fuzzy-only match stops at YELLOW. On real phone photos our CNN is often unsure, so the app shows an editable UNVERIFIED name instead of approving it. That is the safety guarantee."
+Honest line: "GREEN needs both readers to agree with a 95+ match on a DGDA-registered brand. A fuzzy-only match stops at YELLOW. If both readers match the brand exactly, the CNN's guess is shown but ignored because its 78 training classes do not include these real-photo brands — the reason text says that. Everything still needs human confirmation before a schedule appears."
 
 ## 1:30–2:10 — Screen 3 + safety warning
 Pick/correct each brand, type the dose (`1+0+1`), press **Build my Bangla schedule**. Show the Bangla morning/noon/night table.
