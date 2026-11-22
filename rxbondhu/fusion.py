@@ -21,7 +21,7 @@ def clean_display_name(text: str) -> str:
     if not value:
         return ""
     value = re.sub(
-        r"^(tab|tablet|cap|capsule|syp|syrup|inj|injection|supp|suppository|"
+        r"^(ts|tab|tablet|cap|capsule|syp|syrup|inj|injection|supp|suppository|"
         r"drop|drops|cr|cream|oint|ointment)\.?\s+",
         "", value, flags=re.IGNORECASE,
     )
@@ -89,6 +89,14 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         colour = "RED"
         reason = "The two photo readers disagree - confirm with the prescriber"
         chosen, generic = first["display"] or second["display"], None
+    elif (first["display"] and second["display"]
+          and not first["brand"] and not second["brand"]
+          and first["display"].casefold() != second["display"].casefold()):
+        # Both readers saw something, but they are not even spelling it the
+        # same way. It is still unverified, so never auto-approve it.
+        colour = "RED"
+        reason = "The two photo readers disagree on this unreadable brand - confirm with the prescriber"
+        chosen, generic = first["display"], None
     elif cnn_contradiction:
         colour = "RED"
         reason = "Our CNN disagrees with both photo readers - confirm this line"

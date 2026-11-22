@@ -48,7 +48,7 @@ def normalise_name(text: str) -> str:
     if not text:
         return ""
     t = str(text).lower()
-    t = re.sub(r"\b(tab|tablet|cap|capsule|syr|susp)\b", " ", t)
+    t = re.sub(r"\b(ts|tab|tablet|cap|capsule|syr|susp)\b", " ", t)
     t = re.sub(r"(mg|ml|mcg|gm)\b", " ", t)
     t = re.sub(r"[^a-z0-9\u0980-\u09ff]+", " ", t)
     return re.sub(r"\s+", " ", t).strip()

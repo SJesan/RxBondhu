@@ -95,6 +95,10 @@ class TestDisplayNames(unittest.TestCase):
     def test_form_and_strength_are_stripped(self):
         self.assertEqual(clean_display_name("Syp. Napa (120mg/5ml)"), "Napa")
 
+    def test_ts_abbreviation_is_stripped(self):
+        # Gemini reads the prescriber's "Ts" (tablet) abbreviation as a prefix.
+        self.assertEqual(clean_display_name("Ts Amlocal plus"), "Amlocal plus")
+
 
 class TestFusion(unittest.TestCase):
     def setUp(self):
@@ -163,6 +167,14 @@ class TestFusion(unittest.TestCase):
         result = fuse({"brand": "Napa", "confidence": 0.93}, "Tab Napa", self.brands,
                       second_vlm_text="Tab Maxpro")
         self.assertEqual(result["colour"], "RED")
+        self.assertIn("disagree", result["reason"])
+
+    def test_unverified_readers_disagree_is_red(self):
+        # Real line: Reader 1 "Ts Panicel", Reader 2 "Ts Paricel".
+        result = fuse({"brand": "Az", "confidence": 0.89}, "Ts Panicel", self.brands,
+                      second_vlm_text="Ts Paricel")
+        self.assertEqual(result["colour"], "RED")
+        self.assertEqual(result["name"], "Panicel")
         self.assertIn("disagree", result["reason"])
 
     def test_one_verified_reader_and_one_unknown_is_yellow(self):
