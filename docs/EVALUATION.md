@@ -253,13 +253,78 @@ marks in `clean_display_name()`) the unsafe-GREEN count is 0. The safety
 invariant itself is unchanged: GREEN only when both readers map to the same
 verified brand.
 
+## 2d. Controlled DGDA import comparison (23 Nov 2026)
+
+The 10 images / 47 unique brands in the verified answer key were re-scored with
+**identical real Gemini responses** (cached by image bytes + model in the
+gitignored `results/vlm_cache.jsonl`). Only the lexicon / threshold changed, so
+this is a controlled before/after, not a comparison between two different API runs.
+
+| Configuration | Unsafe-GREEN | GREEN lines | Combined name accuracy | Catch rate |
+|---|---|---|---|---|
+| **Before import** — 25-brand box list, legacy 70 score | **1/7 = 0.1429** | 7 | 26/47 (0.5532) | 0.9524 |
+| **After import** — DGDA snapshot, candidate 90, GREEN ≥95 | **0/12 = 0.0000** | 12 | 24/47 (0.5106) | **1.0** |
+
+**Gate result:** unsafe-GREEN **fell** from 0.1429 to 0, so the kill switch was
+**not** triggered. Combined accuracy dropped by 2/47 because fuzzy matches no
+longer silently become an approved brand — the intended trade-off. Every wrong
+name was still caught (1.0); over-flag rose to 0.4167, which is conservative and
+safe.
+
+Logs: `results/handwritten_before_dgda_log.csv` /
+`results/handwritten_before_dgda_summary.json` and
+`results/handwritten_v2_test_log.csv` / `results/handwritten_v2_summary.json`.
+
+### Threshold selection — no test-set tuning
+
+The 5/5 split was fixed by answer-key row order before looking at scores.
+`GREEN_SCORE = 95` is a safety policy, not tuned. Only the candidate threshold
+was chosen on the dev split:
+
+| Split | Candidate score | Combined accuracy | Unsafe-GREEN | Decision |
+|---|---|---|---|---|
+| Dev rows 1–5 | 85 | 13/25 (0.52) | 0 | |
+| Dev rows 1–5 | **90** | **15/25 (0.60)** | 0 | **selected** |
+| Holdout rows 6–10 (reported once) | 90 | 13/22 (0.5909) | 0 | final |
+
+Logs: `results/threshold85_dev_summary.json`, `results/threshold90_dev_summary.json`,
+`results/threshold90_holdout_summary.json`.
+
+### DGDA source and provenance
+
+- Portal verified as **Directorate General of Drug Administration** (`<title>`
+  and `Medicine Information` menu), design/development by Doel e-Services.
+- Export endpoint: `http://180.211.137.202:9310/Allopathic/Medicine_Information_Ajax.php?action=export`
+- Downloaded once on 23 Nov 2026: 41,655 rows, 4,364,654 bytes,
+  sha256 `7569a475c565c9b18bc1dba8a4725ea418d74ad0049258b3f122149473d317fc`.
+- Filtering: 856 bulk/API/empty rows dropped; 888 brand keys with conflicting
+  generic identities quarantined; 23,801 DGDA keys + 3 box-only brands =
+  **23,804 verified entries**.
+- Source metadata: `data/dgda_source.json`; conflicts: `data/dgda_conflicts.csv`.
+- Spot-check conflicts flagged for the owner, **no silent override**:
+  `Napa` / `Ace` — DGDA also has `Caffeine + Paracetamol` rows while the box
+  check says `Paracetamol`; `Fexo` — DGDA says `Fexofenadine Hydrochloride`,
+  box note says `Fexofenadine`. The manual box row wins in the shipped lexicon
+  and every case remains in the conflict log.
+- **Claim limit:** “DGDA-registered (DAR No …)” in an Allopathic export as of
+  the access date. Not “all approved medicines in Bangladesh”, not dose advice,
+  and **a missing name is UNVERIFIED, not “not approved”**. Kaggle/MedEx was
+  evaluated and superseded; the CNN training data is a separate dataset.
+
+Note: the CNN's 0/47 on these real photos is genuine — its 78 classes are the
+Kaggle word-crop brands and none of the answer-key brands fall in that set. It
+is used as a veto/proof, not as the general reader.
+
 ## 3. Safety checks demonstrated
 
 | Check | How shown in demo |
 |---|---|
 | Duplicate generic | Napa + Ace → warning (both Paracetamol) |
 | Unknown/invented name | `Zzqqx` rejected by lexicon (unit test) |
-| Unknown brand a reader saw | Amdocal / Eltroxin / Paricel → editable name, badge UNVERIFIED (never GREEN) |
+| Unknown brand a reader saw | Amsocal plus / Eltroxin / Amdocal plus → editable name, badge UNVERIFIED (never GREEN) |
+| Close spelling disagreement | Panicel vs Paricel → RED, user confirms |
+| DGDA identity card | Screen 2 shows DAR No / form / company; no price, indication or dose advice |
+| Duplicate generic in combinations | `Amlodipine + Atenolol` vs `Atenolol + Amlodipine` → one warning (unit test) |
 | Low confidence | RED badge + "confirm with pharmacist" |
 | Line-level reading | One review row per medicine line, not per word fragment |
 | Human-in-the-loop | No schedule until Review button is pressed |
@@ -267,7 +332,7 @@ verified brand.
 ## 4. Reproduce locally
 
 ```bash
-.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 69 tests, no network
+.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 84 tests, no network
 .\venv\Scripts\python.exe tools\verify_model.py
 .\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
 ```
@@ -287,6 +352,6 @@ the other rows later — fill them only from real output:
 
 | Variant | CNN name acc. | Combined acc. | Unsafe-GREEN | Notes |
 |---|---|---|---|---|
-| none (default) | 0.0% | 55.3% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers + 25 verified brands (v1 was 4.2%) |
+| none (default) | 0.0% | 51.1% | 0 | measured 23 Nov 2026, 10 samples, two readers + DGDA snapshot, GREEN ≥95 (see §2d for the controlled baseline) |
 | shadow + CLAHE | _fill_ | _fill_ | _fill_ | |
 | + deskew + auto-crop (all) | _fill_ | _fill_ | _fill_ | |
