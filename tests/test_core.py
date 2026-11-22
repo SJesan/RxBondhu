@@ -139,6 +139,17 @@ class TestFusion(unittest.TestCase):
         self.assertIn("verified", result["reason"])
         self.assertTrue(result["needs_confirm"])
 
+    def test_unverified_reader_name_with_low_cnn_is_not_red(self):
+        # Real off-lexicon lines from the demo photo: readable, but not verified.
+        for name in ("Amsocal plus", "Eltroxin", "Panicel", "Vare"):
+            with self.subTest(name=name):
+                result = fuse({"brand": "", "confidence": 0.0}, name, self.brands,
+                              second_vlm_text=name)
+                self.assertEqual(result["colour"], "UNVERIFIED")
+                self.assertEqual(result["name"], name)
+                self.assertIsNone(result["generic"])
+                self.assertTrue(result["needs_confirm"])
+
     def test_unverified_cnn_shows_reader_name_but_stays_unverified(self):
         raw = "Tab. Amdocal Plus 50 (Amlodipine + Atenolol)"
         result = fuse({"brand": "Az", "confidence": 0.95}, raw, self.brands)

@@ -76,9 +76,14 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         cnn_confident and names and cnn_row["brand"] not in names
     )
 
-    if cnn_conf < low and not names:
+    # A readable but unverified name must stay UNVERIFIED (editable), not RED.
+    # Only a low-confidence CNN *and* no readable name at all is a RED case.
+    readable = (first["display"] or second["display"]
+                or (cnn_brand if cnn_conf >= low else ""))
+
+    if cnn_conf < low and not names and not readable:
         colour = "RED"
-        reason = "CNN confidence below the safety threshold and readers are unsure"
+        reason = "CNN confidence below the safety threshold and no readable medicine name"
         chosen, generic = "", None
     elif both_confident and not both_agree:
         colour = "RED"
@@ -103,7 +108,6 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         reason = "Only our CNN is confident — confirm the brand on the paper"
         chosen, generic = cnn_row["brand"], cnn_row["generic"]
     else:
-        readable = first["display"] or second["display"] or cnn_brand
         if readable:
             colour = "UNVERIFIED"
             reason = "Brand could not be verified against the checked medicine list - please check"

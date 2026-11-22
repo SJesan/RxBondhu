@@ -218,15 +218,15 @@ lexicon + fusion, no human correction applied. Logs:
 | Metric | v1 (one reader) | v2 (two readers) |
 |---|---|---|
 | CNN name accuracy (real photo) | 0/48 | 0/47 |
-| Reader 1 (`3.5-flash-lite`) | 24/48 (50.0%) | 28/47 (59.6%) |
-| Reader 2 (`3.1-flash-lite`) | — | **28/47 (59.6%)** |
-| Combined name shown | 2/48 (4.2%) | 23/47 (48.9%) |
-| Default-correct rate (shown lines) | — | 24/48 (50.0%) |
-| Dose accuracy | 7/48 (14.6%) | 9/48 (18.8%) |
-| Unverified lines | — | 31/48 |
+| Reader 1 (`3.5-flash-lite`) | 24/48 (50.0%) | **30/47 (63.8%)** |
+| Reader 2 (`3.1-flash-lite`) | — | 21/47 (44.7%) |
+| Combined name shown | 2/48 (4.2%) | 26/47 (55.3%) |
+| Default-correct rate (shown lines) | — | 27/48 (56.3%) |
+| Dose accuracy | 7/48 (14.6%) | 8/48 (16.7%) |
+| Unverified lines | — | 36/48 |
 | Unsafe GREEN | 0 | **0 of 4 GREEN lines** |
 | Catch rate (wrong lines not GREEN) | 1.0 | 1.0 |
-| Over-flag rate (correct lines shown RED) | 1.0 | 0.0435 (1 line) |
+| Over-flag rate (correct lines shown RED) | 1.0 | 0.0385 (1 line) |
 
 **Lexicon provenance (23 Nov 2026):** ten rows were checked against medicine
 boxes / a pharmacist and added to `data/manual_brands.csv` with `checked_by` and
@@ -234,6 +234,14 @@ boxes / a pharmacist and added to `data/manual_brands.csv` with `checked_by` and
 overlapped the seed list). That check also corrected
 `Maxpro` from the old `Meloxicam` label to **Esomeprazole**. These are brand →
 generic identity facts, not dose advice.
+
+**Badge fix (23 Nov):** off-lexicon names that a reader could see (`Amsocal plus`,
+`Eltroxin`, `Panicel`, `Vare`) were incorrectly showing RED because the low-CNN
+branch ran before readable names were considered. They now show editable
+UNVERIFIED; RED is reserved for no readable name, direct reader disagreement,
+or an explicit user flag. Gemini output varies slightly between runs, so the
+numbers above are the committed log from this run, not a promise of identical
+per-model scores next time.
 
 The totals are 47 rather than 48 because the answer key's `Syp. Napa` and
 `Supp. Napa` normalise to the same brand and are counted once as a set; 48 review
@@ -259,7 +267,7 @@ verified brand.
 ## 4. Reproduce locally
 
 ```bash
-.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 68 tests, no network
+.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 69 tests, no network
 .\venv\Scripts\python.exe tools\verify_model.py
 .\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
 ```
@@ -279,6 +287,6 @@ the other rows later — fill them only from real output:
 
 | Variant | CNN name acc. | Combined acc. | Unsafe-GREEN | Notes |
 |---|---|---|---|---|
-| none (default) | 0.0% | 48.9% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers + 25 verified brands (v1 was 4.2%) |
+| none (default) | 0.0% | 55.3% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers + 25 verified brands (v1 was 4.2%) |
 | shadow + CLAHE | _fill_ | _fill_ | _fill_ | |
 | + deskew + auto-crop (all) | _fill_ | _fill_ | _fill_ | |
