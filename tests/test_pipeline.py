@@ -44,6 +44,7 @@ class TestSchedule(unittest.TestCase):
         rows = schedule_rows(schedule["medicines"])
         self.assertEqual(rows[0]["morning"], "১")
         self.assertEqual(rows[0]["noon"], "—")  # zero dose shown as a dash
+        self.assertNotIn("colour", rows[0])  # safety colour stays out of the Bangla table
         text = summary_text(schedule)
         self.assertIn("সময়সূচি", text)
         self.assertIn("সতর্কতা", text)

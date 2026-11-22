@@ -8,6 +8,8 @@ import os
 import sys
 import tempfile
 from datetime import date, timedelta
+from html import escape
+from pathlib import Path
 
 import streamlit as st
 from PIL import Image
@@ -30,7 +32,7 @@ DEMO_DISCLAIMER = f'<div class="rx-disclaimer"><b>{DISCLAIMER_TEXT}</b></div>'
 def init_state():
     defaults = {"page": 1, "source": None, "crop": None, "analysis": None,
                 "confirmed": None, "schedule": None, "audio": None,
-                "read_count": 0, "font_scale": "Normal"}
+                "read_count": 0, "font_scale": "Normal", "theme": "Light"}
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -39,7 +41,6 @@ def init_state():
 def reset_reading():
     """Drop stale/out-of-date results and return to the photo screen."""
     st.session_state.analysis = None
-    st.session_state.analysis_images = []
     st.session_state.confirmed = None
     st.session_state.schedule = None
     st.session_state.audio = None
@@ -47,29 +48,30 @@ def reset_reading():
     st.rerun()
 
 
-def crop_ui(image: Image.Image, coverage: int = 92, key: str = "crop") -> Image.Image:
-    """Crop the medicine lines only, starting at ~92% of the photo by default."""
+def crop_ui(image: Image.Image, coverage: int = 92, key: str = "crop"):
+    """Return (crop, box) so we can show one bordered original, not two photos."""
     already_cropped = st.checkbox(
         "Already cropped — use the full image (no crop box)",
         value=False, key=f"already_{key}",
     )
     if already_cropped:
         st.caption("Using the full image as the medicine area.")
-        return image
+        return image, None
     try:
         from streamlit_cropper import st_cropper
         inset_x = int(image.width * (100 - coverage) / 200)
         inset_y = int(image.height * (100 - coverage) / 200)
         default_coords = (inset_x, image.width - inset_x,
                           inset_y, image.height - inset_y)
-        return st_cropper(
+        cropped, box = st_cropper(
             image, realtime_update=True, default_coords=default_coords,
-            box_color="#2E8B57", aspect_ratio=None, return_type="image",
-            key=f"cropper_{key}_{coverage}",
+            box_color="#2E8B57", aspect_ratio=None, return_type="both",
+            stroke_width=4, key=f"cropper_{key}_{coverage}",
         )
+        return cropped, box
     except Exception as exc:
         st.info(f"Cropper unavailable ({exc}) — using the full image as the crop.")
-        return image
+        return image, None
 
 
 def colour_badge(colour: str) -> str:
@@ -79,6 +81,27 @@ def colour_badge(colour: str) -> str:
 
 def screen_1():
     ui.step_header(1, "১. ছবি দিন", "Upload a prescription photo or take one, then drag a box around the medicine lines only.")
+    st.caption("Made by Team Zero-Shot · solo build for CoU AI Hackathon 2026")
+
+    info = recognizer.model_info()
+    key_ok, _ = vlm.available()
+    with st.expander("🤖 AI pipeline — what is trained, what is verified", expanded=False):
+        st.markdown(ui.model_info_html(info, key_ok), unsafe_allow_html=True)
+
+    # Small fictional demo strip — easy to replace tomorrow.
+    demo_dir = Path(__file__).resolve().parent / "assets" / "demo"
+    demos = sorted(demo_dir.glob("demo_rx_*.png"))[:6]
+    if demos:
+        st.markdown("**Demo prescriptions** <span style='color:var(--rx-muted);font-size:0.8rem;'>"
+                    "fictional samples — replace with your own tomorrow</span>",
+                    unsafe_allow_html=True)
+        demo_cols = st.columns(6)
+        for index, (column, path) in enumerate(zip(demo_cols, demos), start=1):
+            with column:
+                column.image(path, width=112)
+                column.caption(f"Demo {index:02d}")
+        st.write("")
+
     with st.expander("🧪 Our CNN — proof demo (single word crop)"):
         st.caption(
             "Our own EfficientNet-B0, fine-tuned here: held-out **word-crop** accuracy "
@@ -101,6 +124,7 @@ def screen_1():
                     ))
                 else:
                     st.error("CNN checkpoint not available — nothing was guessed.")
+
     tab_upload, tab_camera = st.tabs(["Upload photo", "Use camera"])
     with tab_upload:
         uploaded = st.file_uploader("Prescription image", type=["jpg", "jpeg", "png", "webp"])
@@ -112,22 +136,24 @@ def screen_1():
         photo = camera.capture()
         if photo is not None:
             st.session_state.source = photo
-            st.image(photo, caption="Captured photo — crop the medicine lines below", width='stretch')
 
     if st.session_state.source is None:
-        st.info("No image yet. Demo without a photo? Add a sample in `samples/` and refresh.")
+        st.info("Choose a photo above, or use one of the demo images as a visual reference.")
         return
 
-    st.subheader("Crop the medicine area")
+    st.subheader("Select the medicine area")
     coverage = st.slider(
         "Medicine-area coverage (%) — start wide, then trim", 70, 98, 92, 2,
         key="coverage", help="92% means a 4% margin on each side of the photo.",
     )
-    st.session_state.crop = crop_ui(st.session_state.source, coverage=coverage)
+    st.session_state.crop, crop_box = crop_ui(
+        st.session_state.source, coverage=coverage)
     if st.session_state.crop is None:
         st.warning("Crop is not ready yet — drag a box around the medicine lines, then try again.")
         return
-    st.image(st.session_state.crop, caption="Selected crop", width='stretch')
+    # One photo only: the green rectangle shows what the AI will actually read.
+    st.image(ui.draw_crop_box(st.session_state.source, crop_box),
+             caption="Green box = medicine area sent to the AI", width='stretch')
     if st.session_state.read_count >= 5:
         st.caption("Session reading limit reached — Gemini is paused, our CNN still works.")
     if st.button("🔍 Read with both AI models →", type="primary"):
@@ -138,7 +164,7 @@ def screen_1():
                 st.session_state.analysis = pipeline.analyse(
                     st.session_state.crop, full_image=st.session_state.source,
                     skip_vlm=skip_vlm)
-                st.session_state.analysis_images = st.session_state.analysis.pop("images", [])
+                st.session_state.analysis.pop("images", None)
                 st.session_state.read_count += 1
                 st.session_state.page = 2
                 st.rerun()
@@ -180,14 +206,15 @@ def screen_2():
 
     if not analysis["items"]:
         st.error("No medicine lines detected. Try a tighter, better-lit crop.")
-    st.caption("Line crop on the left, both readings on the right — compare them with the paper.")
+    st.caption("Both readings and the DGDA identity check are shown side by side — "
+               "compare them with the paper before confirming.")
     for item in analysis["items"]:
         with st.container(border=True):
-            left, right, card = st.columns([1, 3, 2])
-            left.image(item_image(item), width='stretch')
+            right, card = st.columns([3, 2])
+            safe_name = escape(str(item.get("name") or "(unreadable)"))
             right.markdown(
                 f"{colour_badge(item['colour'])} "
-                f"<b style='color:#0B4B2A;font-size:1.05rem;'>{item['name'] or '(unreadable)'}</b>",
+                f"<b style='color:var(--rx-text);font-size:1.08rem;'>{safe_name}</b>",
                 unsafe_allow_html=True,
             )
             right.caption(item["reason"])
@@ -200,17 +227,23 @@ def screen_2():
             # Streamlit Cloud can hot-reload app.py while keeping an older
             # rxbondhu.ui in sys.modules. Never let a stale helper crash the
             # review screen: show a neutral card until the app is rebooted.
+            fallback_html = (
+                "<div style='background:var(--rx-surface-alt);border:1px solid var(--rx-border);"
+                "border-radius:14px;padding:10px 12px;'>"
+                "<b style='color:var(--rx-text);'>DGDA তথ্য</b><br>"
+                "এই সেশনে DGDA তথ্য দেখা যাচ্ছে না — ছবিটি আবার পড়ুন।</div>"
+            )
             try:
-                card_html = ui.dgda_card_html(item.get("dgda_record"))
+                compact_html = ui.dgda_compact_html(item.get("dgda_record"))
             except (AttributeError, TypeError, ValueError):
-                card_html = (
-                    "<div style='background:#F4FAF5;border:1px solid #CDE8D5;"
-                    "border-radius:14px;padding:10px 12px;margin-top:8px;'>"
-                    "<b style='color:#0B4B2A;'>DGDA তথ্য</b><br>"
-                    "এই সেশনে DGDA তথ্য দেখা যাচ্ছে না — ছবিটি আবার পড়ুন।"
-                    "</div>"
-                )
-            card.markdown(card_html, unsafe_allow_html=True)
+                compact_html = fallback_html
+            card.markdown(compact_html, unsafe_allow_html=True)
+            with card.expander("More info", expanded=False):
+                try:
+                    full_html = ui.dgda_card_html(item.get("dgda_record"))
+                except (AttributeError, TypeError, ValueError):
+                    full_html = fallback_html
+                st.markdown(full_html, unsafe_allow_html=True)
             if right.button("🚩 Looks wrong — mark RED", key=f"wrong_{item['index']}"):
                 item["colour"] = "RED"
                 item["reason"] = (str(item.get("reason") or "")
@@ -245,15 +278,6 @@ def screen_2():
     if st.button("← Back to photo"):
         st.session_state.page = 1
         st.rerun()
-
-
-def item_image(item):
-    """Image crops are kept in memory in analysis, not in the dict sent to UI."""
-    images = st.session_state.get("analysis_images") or []
-    index = item.get("index", -1)
-    if isinstance(index, int) and 0 <= index < len(images):
-        return images[index]
-    return Image.new("RGB", (8, 8), "white")
 
 
 def screen_3():
@@ -293,8 +317,9 @@ def screen_3():
                           else "DGDA DAR not matched — verify on the box")
             c3.markdown(
                 f"{colour_badge(row['colour'])}<br><br>"
-                f"Generic: <b>{row['generic'] or 'unknown'}</b><br>"
-                f"<span style='color:#3D5B48;font-size:0.85rem;'>{provenance}</span>",
+                f"Generic: <b>{escape(str(row['generic'] or 'unknown'))}</b><br>"
+                f"<span style='color:var(--rx-muted);font-size:0.85rem;'>"
+                f"{escape(provenance)}</span>",
                 unsafe_allow_html=True,
             )
 
@@ -312,8 +337,13 @@ def screen_3():
                 st.warning(warning)
         st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
         summary = bangla.summary_text(schedule)
-        with st.expander("Bangla summary text"):
-            st.write(summary)
+        st.markdown("**Bangla summary**")
+        st.markdown(
+            "<div style='background:var(--rx-surface-alt);border:1px solid var(--rx-border);"
+            "border-radius:14px;padding:12px 14px;white-space:pre-wrap;color:var(--rx-text);'>"
+            f"{escape(summary)}</div>",
+            unsafe_allow_html=True,
+        )
         if st.button("🔊 Bangla audio"):
             with st.spinner("Generating speech (first run downloads the TTS model)…"):
                 result = tts.speak_bangla(summary)
@@ -324,35 +354,44 @@ def screen_3():
             else:
                 st.error(f"Audio failed: {result['error']}")
 
-        reminder = reminders.make_ics(schedule)
-        st.download_button(
-            "📅 Download reminders (.ics)",
-            data=reminder["ics"].encode("utf-8"),
-            file_name="rxbondhu-reminders.ics",
-            mime="text/calendar",
-        )
+        st.subheader("Calendar & sharing")
+        first_day = st.date_input("First reminder date", value=date.today() + timedelta(days=1),
+                                  key="first_day")
+        reminder = reminders.make_ics(schedule, start_date=first_day)
+        ics_col, all_col = st.columns([1, 1])
+        with ics_col:
+            st.download_button(
+                "📅 Download reminders (.ics)",
+                data=reminder["ics"].encode("utf-8"),
+                file_name="rxbondhu-reminders.ics",
+                mime="text/calendar",
+            )
+        with all_col:
+            st.link_button(
+                "📅 Add all medicines once (Google Calendar)",
+                sharing.calendar_all_link(schedule, start_date=first_day),
+            )
         st.caption(
-            f"{len(reminder['events'])} calendar events generated. "
-            "Times 08:00 / 13:00 / 21:00 are examples — please confirm with the prescriber."
+            f"{len(reminder['events'])} separate calendar events in the .ics file. "
+            "The Google Calendar button creates one overview event containing every medicine. "
+            "Times 08:00 / 13:00 / 21:00 are examples — confirm with the prescriber."
         )
         for warning in reminder["warnings"]:
             st.caption(warning)
 
-        st.subheader("Calendar & sharing")
-        first_day = st.date_input("First reminder date", value=date.today() + timedelta(days=1),
-                                  key="first_day")
         links = sharing.calendar_links(schedule, start_date=first_day)
         for link in links:
             st.markdown(f"- [📅 {link['medicine']} — {link['slot']}]({link['url']})")
         st.caption("Each link adds one example day to Google Calendar (Asia/Dhaka); "
-                   "the .ics above repeats for the full course. Clock times inside those "
-                   "calendar files are illustrative only — confirm with the prescriber. "
-                   "Use the .ics for all medicines at once.")
-        st.markdown(f"[📱 Prepare WhatsApp message]({sharing.whatsapp_link(schedule)})")
-        st.caption("Opens WhatsApp with a prepared Bangla message — the app never sends it for you.")
-        with st.expander("Roadmap / future work"):
-            st.caption("Voice-call reminders and email reminders are future work: they need a "
-                       "verified sender/number, user consent and a paid service. They are not built here.")
+                   "the .ics above repeats for the full course. Clock times are illustrative only.")
+
+        st.subheader("Reminders")
+        email_col, call_col, whatsapp_col = st.columns(3)
+        email_col.button("📧 Email reminder — Coming soon", disabled=True)
+        call_col.button("📞 Call reminder — Coming soon", disabled=True)
+        whatsapp_col.link_button("📱 WhatsApp reminder", sharing.whatsapp_link(schedule))
+        st.caption("WhatsApp opens a prepared Bangla message — the app never sends it for you. "
+                   "Email and call reminders need a verified sender/number and user consent.")
 
         st.markdown("**Per-medicine audio**")
         for index, med in enumerate(schedule["medicines"]):
@@ -371,41 +410,50 @@ def screen_3():
 
 
 def sidebar():
+    theme = ui.theme_name(st.session_state.theme)
+    info = recognizer.model_info()
+    key_ok, _ = vlm.available()
     with st.sidebar:
-        st.title("💊 RxBondhu")
-        st.caption("Handwritten prescription → Bangla schedule")
+        st.markdown(ui.sidebar_header_html(info, key_ok), unsafe_allow_html=True)
         st.radio("Step", [1, 2, 3], index=st.session_state.page - 1,
                  format_func=lambda n: {1: "1 · photo", 2: "2 · reading", 3: "3 · schedule"}[n],
                  key="nav", disabled=True)
-        info = recognizer.model_info()
-        if info.get("available"):
-            st.success(f"CNN ready · test acc {info.get('test_accuracy', '?')}")
-        else:
-            st.warning("CNN checkpoint not found — Gemini-only mode")
-        key_ok, _ = vlm.available()
-        st.info(f"Gemini key: {'yes' if key_ok else 'no'}")
+        st.markdown("---")
+        toggle_label = "☀️ Switch to light" if theme == "dark" else "🌙 Switch to dark"
+        if st.button(toggle_label, key="theme_toggle", use_container_width=True,
+                     help="Light is the default. Dark mode is remembered for this session."):
+            st.session_state.theme = "Light" if theme == "dark" else "Dark"
+            st.rerun()
+        st.caption(f"Theme: {theme.title()} · default light")
+        st.markdown("---")
         choices = ["Normal", "Large", "Extra large"]
         chosen = st.selectbox("Text size", choices,
                               index=choices.index(st.session_state.font_scale),
                               key="font_picker")
         st.session_state.font_scale = chosen
-        st.caption("Built fresh for CoU AI Hackathon 2026. AI tools: OpenCode + "
-                   "Google Gemini (2 readers) + our own CNN. Groq was evaluated but not shipped.")
+        with st.expander("Model info", expanded=False):
+            st.markdown(ui.model_info_html(info, key_ok), unsafe_allow_html=True)
+        st.markdown("---")
+        st.caption(
+            "Built fresh for CoU AI Hackathon 2026. AI: OpenCode (Big Pickle) + "
+            "Google Gemini (2 readers) + our own CNN. Groq and RxFusion were "
+            "evaluated but not shipped."
+        )
+        st.markdown('<p class="rx-credit">Made by Team Zero-Shot</p>',
+                    unsafe_allow_html=True)
 
 
 def main():
     init_state()
-    # Keep PIL crops for display; they are not serialisable into a dataframe.
-    if "analysis_images" not in st.session_state:
-        st.session_state.analysis_images = []
-    ui.inject_css()
+    theme = ui.theme_name(st.session_state.theme)
+    ui.inject_css(theme)
     scale = st.session_state.get("font_scale", "Normal")
     factor = {"Normal": 1.0, "Large": 1.15, "Extra large": 1.3}.get(str(scale), 1.0)
     st.markdown(
         f"<style>.stMarkdown p,.stMarkdown li,.stCaption{{font-size:calc(0.95rem * {factor})!important;}}</style>",
         unsafe_allow_html=True,
     )
-    ui.hero()
+    ui.hero(theme)
     sidebar()
     if st.session_state.page == 1:
         screen_1()

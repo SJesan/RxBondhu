@@ -368,7 +368,7 @@ real line.
 ## 4. Reproduce locally
 
 ```bash
-.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 86 tests, no network
+.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 93 tests, no network
 .\venv\Scripts\python.exe tools\verify_model.py
 .\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
 ```

@@ -22,7 +22,6 @@ def schedule_rows(medicines: list[dict]) -> list[dict]:
             "noon": digits(dose["noon"]) if dose["noon"] else "—",
             "night": digits(dose["night"]) if dose["night"] else "—",
             "days": digits(dose["days"]) if dose.get("days") else "—",
-            "colour": med.get("colour", "GREEN"),
         })
     return rows
 

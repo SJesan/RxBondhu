@@ -40,6 +40,26 @@ def calendar_links(schedule: dict, start_date: date | None = None) -> list[dict]
     return links
 
 
+def calendar_all_link(schedule: dict, start_date: date | None = None) -> str:
+    """One Google Calendar event containing every confirmed medicine.
+
+    This is an overview, not separate medicine reminders: the .ics download is
+    the all-at-once file with actual per-dose events. Nothing is written to any
+    calendar until the user confirms on Google's own page.
+    """
+    start_date = start_date or date.today() + timedelta(days=1)
+    start_dt = datetime.combine(start_date, datetime.min.time()) + timedelta(hours=8)
+    end_dt = start_dt + timedelta(minutes=15)
+    details = bangla.summary_text(schedule)[:1900]
+    query = (
+        "action=TEMPLATE"
+        "&text=RxBondhu%20schedule%20%28confirm%20with%20prescriber%29"
+        f"&dates={start_dt:%Y%m%dT%H%M%S}/{end_dt:%Y%m%dT%H%M%S}"
+        f"&ctz={reminders.TZID}&details={quote(details)}"
+    )
+    return f"{CALENDAR_URL}?{query}"
+
+
 def whatsapp_link(schedule: dict) -> str:
     """A wa.me link containing the Bangla summary as prepared text."""
     text = bangla.summary_text(schedule)[:1400]

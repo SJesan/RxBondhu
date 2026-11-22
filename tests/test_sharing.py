@@ -28,6 +28,15 @@ class TestSharing(unittest.TestCase):
         self.assertTrue(query["dates"][0].startswith("20261124T080000/"))
         self.assertIn("Napa", query["text"][0])
 
+    def test_all_in_one_calendar_link_is_one_overview_event(self):
+        url = sharing.calendar_all_link(SCHEDULE, start_date=date(2026, 11, 24))
+        query = parse_qs(urlparse(url).query)
+        self.assertEqual(query["action"], ["TEMPLATE"])
+        self.assertEqual(query["ctz"], ["Asia/Dhaka"])
+        self.assertTrue(query["dates"][0].startswith("20261124T080000/"))
+        self.assertIn("RxBondhu schedule", query["text"][0])
+        self.assertIn("Napa", query["details"][0])
+
     def test_whatsapp_link_is_prepared_text_not_auto_send(self):
         url = sharing.whatsapp_link(SCHEDULE)
         self.assertTrue(url.startswith("https://wa.me/?text="))
