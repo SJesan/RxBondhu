@@ -17,6 +17,7 @@ _edge_plan_profile/
 
 # Real prescription photos — stay local (privacy); only derived metrics are committed
 results/rx/
+results/crop_dump/
 
 # Provisional real-handwriting artifacts — stay local until a human verifies the key
 results/answer_key.csv
