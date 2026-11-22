@@ -2,6 +2,11 @@
 
 Practice this exact flow. Keep the video/voice calm — judges care about safety and honesty.
 
+**Delivery plan (confirmed 22 Nov):** primary = local `streamlit run app.py`;
+secondary = live link `https://rxbondhu.streamlit.app` if the venue network allows;
+backup = this exact ≤3-min run recorded as an unlisted MP4. Clean primary sample:
+`samples/sample_ui_smoke.png`. Stress sample: `images.jpg`.
+
 ## 0:00–0:20 — Problem
 "Many Bangladeshi prescriptions are handwritten. A caregiver can misread `1+0+1` or miss that Napa and Ace are both Paracetamol — a double dose. RxBondhu is a reading aid, not a doctor."
 
