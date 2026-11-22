@@ -13,7 +13,7 @@
 **Live link:** https://rxbondhu.streamlit.app
 **Repo:** https://github.com/SJesan/RxBondhu
 
-**Demo plan (confirmed 22 Nov):** local `streamlit run app.py` as primary, ≤3-min unlisted backup video by **Rakin**, plus the live link above if the venue network allows.
+**Demo plan (confirmed 22 Nov, updated 23 Nov):** local `streamlit run app.py` as primary, ≤3-min unlisted backup video by **Rakin** (pending), plus the live link above if the venue network allows (it redirected to Streamlit sign-in for anonymous checks on 23 Nov — local demo is primary).
 
 **Organiser update (22 Nov 6:07 PM):**
 - GitHub account collection form (team leader, once): https://docs.google.com/forms/d/e/1FAIpQLSeot5-TccNHNZ-HWqXcYFNZQmAF2iNT7lumJ3JgCG510sKXLg/viewform — deadline **23 Nov 2026, 11:00 PM**. Fields: official team name, GitHub-linked email, contact phone. No project content.

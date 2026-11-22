@@ -3,8 +3,10 @@
 Practice this exact flow. Keep the video/voice calm — judges care about safety and honesty.
 
 **Delivery plan (confirmed 22 Nov):** primary = local `streamlit run app.py`;
-secondary = live link `https://rxbondhu.streamlit.app` if the venue network allows;
-backup = this exact ≤3-min run recorded as an unlisted MP4. Clean primary sample:
+secondary = live link `https://rxbondhu.streamlit.app` if the venue network allows
+(it redirected to a Streamlit sign-in page for anonymous checks on 23 Nov, so do
+not rely on it); backup = this exact ≤3-min run recorded as an unlisted MP4
+by Rakin (still pending). Clean primary sample:
 `samples/sample_ui_smoke.png`. Stress sample: `images.jpg`.
 
 ## 0:00–0:20 — Problem
