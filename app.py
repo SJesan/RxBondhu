@@ -182,7 +182,7 @@ def screen_2():
     st.caption("Line crop on the left, both readings on the right — compare them with the paper.")
     for item in analysis["items"]:
         with st.container(border=True):
-            left, right = st.columns([1, 4])
+            left, right, card = st.columns([1, 3, 2])
             left.image(item_image(item), width='stretch')
             right.markdown(
                 f"{colour_badge(item['colour'])} "
@@ -195,6 +195,9 @@ def screen_2():
                 f"CNN: `{item.get('cnn_brand') or '—'}` ({confidence:.2f}) · "
                 f"Reader 1: `{item.get('vlm_guess') or item.get('vlm_text') or '—'}` · "
                 f"Reader 2: `{item.get('vlm2_guess') or item.get('vlm2_text') or '—'}`"
+            )
+            card.markdown(
+                ui.dgda_card_html(item.get("dgda_record")), unsafe_allow_html=True
             )
             if right.button("🚩 Looks wrong — mark RED", key=f"wrong_{item['index']}"):
                 item["colour"] = "RED"
@@ -222,6 +225,7 @@ def screen_2():
                 "colour": item["colour"],
                 "editable": unverified,
                 "raw_reading": item.get("vlm_guess") or item.get("vlm2_guess") or "",
+                "dgda_record": item.get("dgda_record"),
             })
         st.session_state.confirmed = rows
         st.session_state.page = 3
@@ -271,9 +275,14 @@ def screen_3():
                                         row["dose"], key=f"dose_{row['index']}")
             exact = lookup_exact(row["name"], brands)
             row["generic"] = exact["generic"] if exact else row["generic"]
+            record = row.get("dgda_record") or {}
+            dar = str(record.get("dar_no") or "").strip()
+            provenance = (f"DGDA-registered · DAR {dar}" if dar
+                          else "DGDA DAR not matched — verify on the box")
             c3.markdown(
                 f"{colour_badge(row['colour'])}<br><br>"
-                f"Generic: <b>{row['generic'] or 'unknown'}</b>",
+                f"Generic: <b>{row['generic'] or 'unknown'}</b><br>"
+                f"<span style='color:#3D5B48;font-size:0.85rem;'>{provenance}</span>",
                 unsafe_allow_html=True,
             )
 

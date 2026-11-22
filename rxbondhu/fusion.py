@@ -6,13 +6,28 @@ Safety rules (never relaxed):
 - The CNN is a safety veto and proof of an own trained model, not a free pass.
 """
 
+import os
 import re
+from difflib import SequenceMatcher
 
-from .lexicon import load_brands, lookup_exact, match_brand, normalise_name, suggest_brands
+from .lexicon import (GREEN_SCORE, load_brands, lookup_exact, match_brand,
+                      normalise_name, suggest_brands)
 
 CNN_CONFIDENT = 0.60
 CNN_LOW = 0.35
-VLM_SCORE = 70
+# Candidate threshold, selected on the 5-image dev split (answer-key rows
+# 1-5) from {85, 90}: 90 gave combined 0.60 vs 0.52 with zero unsafe-GREEN.
+# Rows 6-10 are holdout and are reported once. GREEN_SCORE = 95 is a fixed
+# safety policy, not tuned. The env override is for reproducible before/after
+# evaluator runs; the app never sets it.
+VLM_SCORE = int(os.getenv("RX_VLM_SCORE", "90"))
+
+
+def _close_spelling(first: str, second: str) -> bool:
+    """Two readers spelled nearly the same name differently (e.g. Panicel/Paricel)."""
+    if not first or not second:
+        return False
+    return SequenceMatcher(None, first.casefold(), second.casefold()).ratio() >= 0.6
 
 
 def clean_display_name(text: str) -> str:
@@ -34,16 +49,23 @@ def clean_display_name(text: str) -> str:
 
 
 def _reader_view(text: str, brands: list[dict]) -> dict:
-    """What one reader said: a verified brand, or an unverified readable name."""
+    """What one reader said: a GREEN-eligible brand, a fuzzy candidate, or a name."""
     raw = str(text or "").strip()
     hit = match_brand(raw, brands, threshold=VLM_SCORE) if raw else None
-    verified = bool(hit and hit.get("score", 0) >= VLM_SCORE)
+    score = int(hit["score"]) if hit else 0
+    green_eligible = bool(hit and score >= GREEN_SCORE)
     return {
         "raw": raw,
-        "brand": hit["brand"] if verified else "",
-        "generic": hit["generic"] if verified else None,
-        "display": (hit["brand"] if verified else clean_display_name(raw)),
-        "score": int(hit["score"]) if hit else 0,
+        # A candidate brand is kept for agreement checks, but its generic is
+        # withheld: a fuzzy hit must never assert the wrong drug identity.
+        "brand": hit["brand"] if hit else "",
+        "generic": hit["generic"] if green_eligible else None,
+        "display": (hit["brand"] if green_eligible else clean_display_name(raw)),
+        "score": score,
+        "green_eligible": green_eligible,
+        "candidate": bool(hit and not green_eligible),
+        "match_kind": hit["match_kind"] if hit else "none",
+        "hit": hit,
     }
 
 
@@ -70,6 +92,8 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
     names = {view["brand"] for view in (first, second) if view["brand"]}
     both_confident = bool(first["brand"] and second["brand"])
     both_agree = both_confident and first["brand"] == second["brand"]
+    min_match = min(first["score"], second["score"])
+    both_green_eligible = both_agree and min_match >= GREEN_SCORE
     one_confident = bool(first["brand"] or second["brand"]) and not both_confident
 
     cnn_contradiction = bool(
@@ -89,28 +113,37 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         colour = "RED"
         reason = "The two photo readers disagree - confirm with the prescriber"
         chosen, generic = first["display"] or second["display"], None
-    elif (first["display"] and second["display"]
-          and not first["brand"] and not second["brand"]
-          and first["display"].casefold() != second["display"].casefold()):
-        # Both readers saw something, but they are not even spelling it the
-        # same way. It is still unverified, so never auto-approve it.
+    elif (not both_green_eligible
+          and first["display"] and second["display"]
+          and first["display"].casefold() != second["display"].casefold()
+          and (both_confident or _close_spelling(first["display"], second["display"]))):
+        # Readers spelled nearly the same name differently. Never auto-approve
+        # the disagreement, even when one side happens to match a DGDA row.
         colour = "RED"
-        reason = "The two photo readers disagree on this unreadable brand - confirm with the prescriber"
+        reason = "The two photo readers disagree on this brand - confirm with the prescriber"
         chosen, generic = first["display"], None
     elif cnn_contradiction:
         colour = "RED"
         reason = "Our CNN disagrees with both photo readers - confirm this line"
         chosen, generic = next(iter(names)), first["generic"] or second["generic"]
-    elif both_agree:
+    elif both_green_eligible:
         colour = "GREEN"
-        reason = "Two independent readers agree on a verified brand"
+        reason = "Two independent readers agree on a verified brand (score >= 95)"
         chosen = next(iter(names))
         generic = first["generic"] or second["generic"]
+    elif both_agree:
+        # 85-94.9 is a fuzzy-only identity: never GREEN, and no generic is
+        # asserted until a human confirms the spelling on the paper.
+        colour = "YELLOW"
+        reason = "Readers agree, but the brand match is fuzzy-only — confirm on paper"
+        chosen = first["display"] or second["display"]
+        generic = None
     elif one_confident:
         colour = "YELLOW"
         reason = "Only one photo reader is confident"
-        chosen = next(iter(names))
-        generic = first["generic"] or second["generic"]
+        confident = first if first["brand"] else second
+        chosen = confident["display"]
+        generic = confident["generic"]
     elif cnn_confident:
         colour = "YELLOW"
         reason = "Only our CNN is confident — confirm the brand on the paper"
@@ -130,6 +163,28 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
 
     suggestions = suggest_brands(vlm_text or second_vlm_text or cnn_brand or "", brands, n=3)
 
+    # The side card shows provenance only. A fuzzy hit is labelled as such and
+    # never presented as a confirmed DGDA identity.
+    record_hit = (first["hit"] if first["green_eligible"] else
+                  second["hit"] if second["green_eligible"] else
+                  first["hit"] or second["hit"])
+    dgda_record = None
+    if record_hit:
+        dgda_record = {
+            "brand": record_hit["brand"],
+            "generic": record_hit["generic"],
+            "strength": record_hit["strength"],
+            "form": record_hit["form"],
+            "company": record_hit["company"],
+            "dar_no": record_hit["dar_no"],
+            "source": record_hit["source"],
+            "source_url": record_hit["source_url"],
+            "accessed_at": record_hit["accessed_at"],
+            "score": record_hit["score"],
+            "match_kind": record_hit["match_kind"],
+            "green_eligible": bool(record_hit["score"] >= GREEN_SCORE),
+        }
+
     return {
         "colour": colour,
         "reason": reason,
@@ -139,10 +194,15 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         "cnn_confidence": round(cnn_conf, 3),
         "vlm_text": vlm_text,
         "vlm_guess": first["display"],
-        "vlm_verified": first["brand"],
-        "vlm2_text": second_vlm_text,
+        "vlm_verified": first["brand"] if first["green_eligible"] else "",
         "vlm2_guess": second["display"],
-        "vlm2_verified": second["brand"],
+        "vlm2_verified": second["brand"] if second["green_eligible"] else "",
+        "vlm2_text": second_vlm_text,
+        "match_scores": {"reader1": first["score"], "reader2": second["score"]},
+        "match_kinds": {"reader1": first["match_kind"], "reader2": second["match_kind"]},
+        "min_match_score": min_match,
+        "green_score": GREEN_SCORE,
+        "dgda_record": dgda_record,
         "agreement": ("agree" if both_agree else
                       "disagree" if both_confident else
                       "one-reader" if one_confident else "unverified"),

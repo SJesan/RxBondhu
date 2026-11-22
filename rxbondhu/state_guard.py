@@ -15,11 +15,11 @@ ANALYSIS_KEYS = (
 ITEM_KEYS = (
     "index", "name", "reason", "colour", "cnn_brand", "cnn_confidence",
     "vlm_guess", "vlm_text", "vlm2_guess", "vlm2_text", "agreement",
-    "dose_text", "suggestions", "generic", "box",
+    "dose_text", "suggestions", "generic", "box", "dgda_record",
 )
 
 CONFIRMED_KEYS = ("index", "name", "options", "dose", "generic", "colour",
-                  "editable", "raw_reading")
+                  "editable", "raw_reading", "dgda_record")
 
 
 def _has_keys(obj, keys):

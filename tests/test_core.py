@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rxbondhu.dose_parser import parse, to_bangla_summary  # noqa: E402
 from rxbondhu.lexicon import load_brands, match_brand, normalise_name, suggest_brands  # noqa: E402
-from rxbondhu.safety import duplicate_warning, has_red  # noqa: E402
+from rxbondhu.safety import duplicate_warning, generic_key, has_red  # noqa: E402
 from rxbondhu.fusion import clean_display_name, fuse  # noqa: E402
 
 
@@ -111,10 +111,22 @@ class TestFusion(unittest.TestCase):
         self.assertEqual(result["name"], "Maxpro")
         self.assertFalse(result["needs_confirm"])
 
-    def test_green_with_fuzzy_vlm(self):
+    def test_fuzzy_only_match_capped_at_yellow(self):
+        # 90.9 < GREEN_SCORE (95): two readers agreeing on a fuzzy spelling is
+        # YELLOW, never GREEN, and no generic is asserted.
         result = fuse({"brand": "Maxpro", "confidence": 0.91}, "Maxpo", self.brands,
-                      second_vlm_text="Maxpro 20mg")
+                      second_vlm_text="Maxpo")
+        self.assertEqual(result["colour"], "YELLOW")
+        self.assertIsNone(result["generic"])
+        self.assertTrue(result["needs_confirm"])
+        self.assertLess(result["min_match_score"], 95)
+
+    def test_exact_match_from_both_readers_is_green(self):
+        result = fuse({"brand": "Maxpro", "confidence": 0.91}, "Tab Maxpro 20mg", self.brands,
+                      second_vlm_text="Cap Maxpro 20")
         self.assertEqual(result["colour"], "GREEN")
+        self.assertEqual(result["generic"], "Esomeprazole")
+        self.assertEqual(result["min_match_score"], 100)
 
     def test_yellow_when_only_cnn_confident(self):
         result = fuse({"brand": "Napa", "confidence": 0.82}, "", self.brands)
@@ -137,15 +149,15 @@ class TestFusion(unittest.TestCase):
     def test_unverified_cnn_brand_is_never_green(self):
         # CNN classes like "Az" exist in the 78-class model but not in the
         # verified lexicon. Unknown is UNVERIFIED (editable), never GREEN.
-        result = fuse({"brand": "Az", "confidence": 0.95}, "", self.brands)
+        result = fuse({"brand": "Zzqqx", "confidence": 0.95}, "", self.brands)
         self.assertEqual(result["colour"], "UNVERIFIED")
-        self.assertEqual(result["name"], "Az")
+        self.assertEqual(result["name"], "Zzqqx")
         self.assertIn("verified", result["reason"])
         self.assertTrue(result["needs_confirm"])
 
     def test_unverified_reader_name_with_low_cnn_is_not_red(self):
-        # Real off-lexicon lines from the demo photo: readable, but not verified.
-        for name in ("Amsocal plus", "Eltroxin", "Panicel", "Vare"):
+        # Real off-lexicon lines from the demo photo with no DGDA candidate.
+        for name in ("Amsocal plus", "Eltroxin", "Amdocal plus", "Panicel", "Vare"):
             with self.subTest(name=name):
                 result = fuse({"brand": "", "confidence": 0.0}, name, self.brands,
                               second_vlm_text=name)
@@ -154,14 +166,33 @@ class TestFusion(unittest.TestCase):
                 self.assertIsNone(result["generic"])
                 self.assertTrue(result["needs_confirm"])
 
+    def test_fuzzy_candidate_names_are_yellow_without_a_generic(self):
+        # "Maxpo" scores 90.9: a DGDA candidate at 90-95 is capped at YELLOW.
+        # No generic is asserted until a human confirms.
+        for name in ("Maxpo",):
+            with self.subTest(name=name):
+                result = fuse({"brand": "", "confidence": 0.0}, name, self.brands,
+                              second_vlm_text=name)
+                self.assertEqual(result["colour"], "YELLOW")
+                self.assertEqual(result["name"], name)
+                self.assertIsNone(result["generic"])
+                self.assertTrue(result["needs_confirm"])
+
     def test_unverified_cnn_shows_reader_name_but_stays_unverified(self):
         raw = "Tab. Amdocal Plus 50 (Amlodipine + Atenolol)"
-        result = fuse({"brand": "Az", "confidence": 0.95}, raw, self.brands)
+        result = fuse({"brand": "Zzqqx", "confidence": 0.95}, raw, self.brands)
         self.assertEqual(result["colour"], "UNVERIFIED")
         self.assertIn("Amdocal", result["name"])
-        self.assertNotIn("Az", result["name"])
+        self.assertNotIn("Zzqqx", result["name"])
         self.assertIsNone(result["generic"])
         self.assertIn("verified", result["reason"])
+
+    def test_unknown_brand_is_never_labelled_not_approved(self):
+        result = fuse({"brand": "", "confidence": 0.0}, "Zzqqx", self.brands,
+                      second_vlm_text="Zzqqx")
+        self.assertEqual(result["colour"], "UNVERIFIED")
+        for prohibited in ("not approved", "fake", "rejected"):
+            self.assertNotIn(prohibited, result["reason"].lower())
 
     def test_two_readers_disagree_is_red(self):
         result = fuse({"brand": "Napa", "confidence": 0.93}, "Tab Napa", self.brands,
@@ -171,7 +202,7 @@ class TestFusion(unittest.TestCase):
 
     def test_unverified_readers_disagree_is_red(self):
         # Real line: Reader 1 "Ts Panicel", Reader 2 "Ts Paricel".
-        result = fuse({"brand": "Az", "confidence": 0.89}, "Ts Panicel", self.brands,
+        result = fuse({"brand": "Zzqqx", "confidence": 0.89}, "Ts Panicel", self.brands,
                       second_vlm_text="Ts Paricel")
         self.assertEqual(result["colour"], "RED")
         self.assertEqual(result["name"], "Panicel")
@@ -194,6 +225,29 @@ class TestSafety(unittest.TestCase):
         self.assertEqual(len(warnings), 1)
         self.assertIn("Napa", warnings[0])
         self.assertIn("Ace", warnings[0])
+
+    def test_combination_ingredient_order_duplicate_detected(self):
+        meds = [
+            {"name": "Amlocal Plus", "generic": "Amlodipine + Atenolol"},
+            {"name": "Another Brand", "generic": "Atenolol + Amlodipine"},
+        ]
+        self.assertEqual(generic_key(meds[0]["generic"]), generic_key(meds[1]["generic"]))
+        warnings = duplicate_warning(meds)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Amlocal Plus", warnings[0])
+        self.assertIn("Another Brand", warnings[0])
+
+    def test_same_generic_different_strength_warns_without_dose_claim(self):
+        meds = [
+            {"name": "Napa 500", "generic": "Paracetamol 500 mg"},
+            {"name": "Napa 650", "generic": "Paracetamol 650 mg"},
+        ]
+        warnings = duplicate_warning(meds)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("same generic", warnings[0])
+        # No specific mg ceiling / medical dose advice is asserted.
+        self.assertNotIn("4000", warnings[0])
+        self.assertNotIn("maximum", warnings[0].lower())
 
     def test_no_duplicate_for_different_generics(self):
         meds = [

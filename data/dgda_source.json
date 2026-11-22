@@ -1,0 +1,16 @@
+{
+  "source": "DGDA Allopathic Medicine Information export",
+  "portal_url": "http://180.211.137.202:9310/Allopathic/",
+  "export_url": "http://180.211.137.202:9310/Allopathic/Medicine_Information_Ajax.php?action=export",
+  "accessed_at": "2026-11-23",
+  "raw_file": "data\\dgda_medicines_raw.csv",
+  "raw_bytes": 4364654,
+  "raw_rows": 41655,
+  "raw_sha256": "7569a475c565c9b18bc1dba8a4725ea418d74ad0049258b3f122149473d317fc",
+  "dropped_bulk_or_empty": 856,
+  "brand_rows": 23804,
+  "manual_rows_added": 3,
+  "conflict_brand_keys": 888,
+  "verified_brand_keys": 23801,
+  "note": "Snapshot committed; no runtime network call. GREEN requires a >=95 normalised match plus two agreeing readers; fuzzy-only is capped at YELLOW."
+}

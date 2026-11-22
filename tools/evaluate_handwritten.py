@@ -18,6 +18,7 @@ Example:
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import sys
@@ -168,6 +169,47 @@ def evaluate_row(answer: dict, result: dict) -> dict:
     }
 
 
+def install_response_cache(path: Path):
+    """Cache real Gemini responses across evaluator runs (experiments only).
+
+    The app itself never caches. Cache keys are image bytes + model, so a
+    cached row is a real API response to the identical image, not a synthetic
+    answer.
+    """
+    cache_file = ROOT / path
+    stored = {}
+    if cache_file.exists():
+        for line in cache_file.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+                stored[entry["key"]] = entry["result"]
+            except (ValueError, KeyError):
+                continue
+    original = vlm.read
+
+    def key_of(image, model):
+        digest = hashlib.sha256()
+        digest.update(f"{image.size}|{image.mode}|{model}".encode("utf-8"))
+        digest.update(image.tobytes())
+        return digest.hexdigest()
+
+    def cached_read(image, model=None):
+        key = key_of(image, model or "")
+        if key in stored:
+            return stored[key]
+        result = original(image, model=model)
+        stored[key] = result
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        with cache_file.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"key": key, "result": result}, ensure_ascii=False) + "\n")
+        return result
+
+    vlm.read = cached_read
+    return len(stored)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--answers", required=True, help="CSV with image,true_brands,true_dose")
@@ -177,6 +219,8 @@ def main() -> int:
     ap.add_argument("--preprocess", action="store_true", help="Use experimental enhancement")
     ap.add_argument("--skip-vlm", action="store_true", help="Force CNN-only (no API calls)")
     ap.add_argument("--limit", type=int, default=0, help="Evaluate only first N rows (0 = all)")
+    ap.add_argument("--offset", type=int, default=0, help="Skip this many answer-key rows")
+    ap.add_argument("--cache", default="", help="Optional JSONL cache for real VLM responses")
     args = ap.parse_args()
 
     with open(args.answers, "r", encoding="utf-8-sig", newline="") as fh:
@@ -185,8 +229,13 @@ def main() -> int:
         if missing:
             raise SystemExit(f"Answer key missing columns: {sorted(missing)}")
         answers = list(reader)
+    if args.offset:
+        answers = answers[args.offset:]
     if args.limit:
         answers = answers[:args.limit]
+
+    if args.cache:
+        print(f"VLM response cache: {install_response_cache(Path(args.cache))} entries")
 
     if not args.skip_vlm:
         ok, why = vlm.available()

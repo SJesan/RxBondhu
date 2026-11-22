@@ -166,6 +166,56 @@ def badge(colour: str) -> str:
     return f'<span class="rx-badge {css}">{label}</span>'
 
 
+def dgda_card_lines(record: dict | None) -> list[str]:
+    """Information-only DGDA provenance lines for the review side card.
+
+    Deliberately neutral: it never says "approved", never gives price or dose
+    advice, and a missing DAR No stays UNVERIFIED rather than a claim about
+    regulatory status.
+    """
+    if not record:
+        return ["DGDA export-এ এই নাম পাওয়া যায়নি — UNVERIFIED, বক্স চেক করুন।"]
+
+    dar = str(record.get("dar_no") or "").strip()
+    source = str(record.get("source") or "")
+    if dar:
+        title = f"DGDA-registered medicine — DAR No {dar}"
+    elif "box" in source.lower() or "pharmacist" in source.lower():
+        title = "Box / pharmacist checked — DGDA DAR not matched (conflict flagged)"
+    else:
+        title = "DGDA-registered medicine — DAR No not listed"
+
+    lines = [
+        title,
+        f"ব্র্যান্ড: {record.get('brand') or '—'}",
+        f"জেনেরিক: {record.get('generic') or '—'}",
+        f"শক্তি: {record.get('strength') or '—'}",
+        f"ডোজ ফর্ম: {record.get('form') or '—'}",
+        f"কোম্পানি: {record.get('company') or '—'}",
+        f"উৎস: {source or '—'}",
+        f"সংগৃহীত: {record.get('accessed_at') or '—'}",
+    ]
+    if not record.get("green_eligible") or record.get("match_kind") == "fuzzy":
+        lines.append("Fuzzy name match — confirm on the paper; not a DGDA-confirmed identity.")
+    return lines
+
+
+def dgda_card_html(record: dict | None) -> str:
+    """Rendered with escaping: CSV text must never become HTML."""
+    from html import escape
+
+    lines = "".join(
+        f"<div style='margin:2px 0;color:#23452F;'>{escape(line)}</div>"
+        for line in dgda_card_lines(record)
+    )
+    return (
+        "<div style='background:#F4FAF5;border:1px solid #CDE8D5;border-radius:14px;"
+        "padding:10px 12px;margin-top:8px;'>"
+        "<div style='font-weight:800;color:#0B4B2A;margin-bottom:4px;'>DGDA তথ্য</div>"
+        f"{lines}</div>"
+    )
+
+
 def step_header(step: int, bangla: str, english: str) -> None:
     from streamlit import markdown
     markdown(

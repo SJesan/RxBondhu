@@ -59,7 +59,8 @@ class TestStateGuard(unittest.TestCase):
     def test_confirmed_rows(self):
         rows = [{"index": 0, "name": "Napa", "options": ["Napa"],
                  "dose": "1+0+1", "generic": "Paracetamol", "colour": "RED",
-                 "editable": False, "raw_reading": "Tab Napa"}]
+                 "editable": False, "raw_reading": "Tab Napa",
+                 "dgda_record": None}]
         self.assertTrue(confirmed_rows_are_current(rows))
         self.assertFalse(confirmed_rows_are_current([{"name": "Napa"}]))
         self.assertFalse(confirmed_rows_are_current(None))
