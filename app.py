@@ -196,9 +196,20 @@ def screen_2():
                 f"Reader 1: `{item.get('vlm_guess') or item.get('vlm_text') or '—'}` · "
                 f"Reader 2: `{item.get('vlm2_guess') or item.get('vlm2_text') or '—'}`"
             )
-            card.markdown(
-                ui.dgda_card_html(item.get("dgda_record")), unsafe_allow_html=True
-            )
+            # Streamlit Cloud can hot-reload app.py while keeping an older
+            # rxbondhu.ui in sys.modules. Never let a stale helper crash the
+            # review screen: show a neutral card until the app is rebooted.
+            try:
+                card_html = ui.dgda_card_html(item.get("dgda_record"))
+            except (AttributeError, TypeError, ValueError):
+                card_html = (
+                    "<div style='background:#F4FAF5;border:1px solid #CDE8D5;"
+                    "border-radius:14px;padding:10px 12px;margin-top:8px;'>"
+                    "<b style='color:#0B4B2A;'>DGDA তথ্য</b><br>"
+                    "এই সেশনে DGDA তথ্য দেখা যাচ্ছে না — ছবিটি আবার পড়ুন।"
+                    "</div>"
+                )
+            card.markdown(card_html, unsafe_allow_html=True)
             if right.button("🚩 Looks wrong — mark RED", key=f"wrong_{item['index']}"):
                 item["colour"] = "RED"
                 item["reason"] = (str(item.get("reason") or "")
