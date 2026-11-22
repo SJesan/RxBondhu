@@ -13,9 +13,20 @@
 **Live link:** https://rxbondhu.streamlit.app
 **Repo:** https://github.com/SJesan/RxBondhu
 
+**Demo plan (confirmed 22 Nov):** local `streamlit run app.py` as primary, ≤3-min unlisted backup video, plus the live link above if the venue network allows.
+
+**Event facts (official site `coutechnova.xyz` + rule book, checked 22 Nov 2026):**
+- 24 November 2026 · Faculty of Engineering, Comilla University, Cumilla · five-hour on-site final
+- Bring laptop, charger and student ID for check-in; no extra time for late arrival
+- Strict submission deadline — submit at least 10 minutes early
+- Exact reporting/check-in time is **still "Time to be announced"** on `coutechnova.xyz/schedule`; check the confirmation email or call the helpline before leaving
+- Helpline: coutechnova2026@gmail.com (numbers on the official site)
+
 **Before submitting, confirm:**
-- [ ] Certificate name exactly as needed: `M M Sadikul Islam Jesan`
-- [ ] Reporting time, venue, start and deadline from organiser email/website
-- [ ] Real-handwriting table filled from actual Rx tests (no invented numbers) — follow [`docs/HANDWRITTEN_TEST_GUIDE.md`](HANDWRITTEN_TEST_GUIDE.md)
-- [ ] GitHub Actions badge is green on README
+- [x] Certificate name: `M. M. Sadikul Islam` (confirmed 22 Nov)
+- [x] Venue and date from official website + rule book (see above)
+- [ ] Exact reporting/check-in time from organiser email or helpline
+- [x] Real-handwriting table filled from 10 samples / 48 lines (no invented numbers) — see [`docs/EVALUATION.md`](EVALUATION.md) and [`docs/HANDWRITTEN_TEST_GUIDE.md`](HANDWRITTEN_TEST_GUIDE.md)
+- [x] GitHub Actions badge green on README (run #16, commit `f394a3a`)
+- [ ] Backup video recorded (≤3 min, unlisted)
 - [ ] Submit at least 10 minutes early
