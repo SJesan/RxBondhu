@@ -11,6 +11,8 @@ import re
 
 from dotenv import load_dotenv
 
+from .lexicon import load_brands
+
 _PROMPT = """You are helping transcribe a handwritten Bangladeshi doctor's prescription.
 Read the image carefully. List ONLY the medicine names and their dose instructions that you can actually see.
 
@@ -23,6 +25,23 @@ Rules:
 - Do NOT diagnose, prescribe, explain, or add medicines that are not visible.
 - If there is no readable medicine, return [].
 """
+
+
+def _prompt() -> str:
+    """Reader prompt; hints are enabled only if the 48-line bake-off keeps them."""
+    base = _PROMPT
+    # Default off: the 48-line bake-off showed name accuracy dropping 24/48 → 18/48
+    # and out-of-list mis-promotions rising 4 → 8 when brand hints were included.
+    if os.getenv("RX_VLM_PROMPT_HINTS", "0").strip() not in ("0", "false", "False"):
+        names = ", ".join(row["brand"] for row in load_brands())
+        base += (
+            "\nCommon verified brands (use ONLY if you actually see one): " + names + "\n"
+            "Dose notation can be 1+0+1 (morning+noon+night), BD, TDS, HS, "
+            "'1+1+1 7 days', 'before/after meal', or Bangla digits/words.\n"
+            "If a letter is unclear, keep your best reading and add '?' — never guess a brand "
+            "just because it is in the list.\n"
+        )
+    return base
 
 
 DEFAULT_MODELS = (
@@ -124,7 +143,7 @@ def read(image, model: str | None = None) -> dict:
     try:
         from google.genai import types
         parts = [types.Part.from_bytes(data=payload, mime_type="image/jpeg"),
-                 types.Part.from_text(text=_PROMPT)]
+                 types.Part.from_text(text=_prompt())]
     except Exception as exc:
         return {"lines": [], "raw": "", "error": f"Could not build Gemini request: {exc}", "model": ""}
 
