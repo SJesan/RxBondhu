@@ -31,8 +31,11 @@ Each sheet is one fake prescription with:
 - Vary the writing: some lines slightly slanted, one sheet with a shadow (phone flashlight at an angle), one sheet photographed at a small tilt. That is realistic and tests preprocessing.
 
 ## 3. Photograph
-- Phone camera, decent light, whole sheet visible. Save as `results/rx/rx01.jpg` … `rx12.jpg`.
-- Avoid cropping tightly — the app has its own crop step, and Gemini benefits from surrounding context.
+- Phone camera, decent light, whole sheet visible.
+- **For the evaluator images, crop to the medicine-lines block only** and save as `results/rx/rx01.jpg` … `rx12.jpg`. Include all 2–3 medicine lines with a small white margin; do not cut off letters, do not crop individual words, no filters/deskew.
+  - Why: `tools/evaluate_handwritten.py` does **not** use the app's cropper — it segments every word in the file. Header text (`Rx`, serial, date, fake patient name) would be fed to the CNN as fake medicines and would break the line-by-line dose scoring.
+  - If you want a realistic full-sheet original as evidence, save it separately (e.g. `results/rx_full/rx01.jpg`); do not use it in the answer key.
+- In the **live app demo**, the opposite is correct: upload the full photo and drag the crop box on screen 1 — that is what the app is designed for.
 
 ## 4. Answer key
 Create `results/answer_key.csv` (UTF-8) using the template:
