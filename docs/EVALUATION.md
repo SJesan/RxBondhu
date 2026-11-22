@@ -129,7 +129,7 @@ Safety metrics (the numbers judges should probe first):
 
 **Honest reading.** Gemini alone found half of the 48 brand lines. Fusion is
 deliberately stricter: most of these brands were outside the then-18-brand
-verified lexicon (now 28 after the 23 Nov box check), so the displayed name came
+verified lexicon (now 25 after the 23 Nov box check), so the displayed name came
 from Gemini but the badge stayed 🔴 RED.
 That is why combined accuracy is low and over-flag rate is 1.0 — the system
 refuses to auto-approve unverified names. Every wrong combined reading was
@@ -230,7 +230,8 @@ lexicon + fusion, no human correction applied. Logs:
 
 **Lexicon provenance (23 Nov 2026):** ten rows were checked against medicine
 boxes / a pharmacist and added to `data/manual_brands.csv` with `checked_by` and
-`source`; the verified lexicon now has 28 rows. That check also corrected
+`source`; the verified lexicon now has 25 unique brands (3 of the 10 rows
+overlapped the seed list). That check also corrected
 `Maxpro` from the old `Meloxicam` label to **Esomeprazole**. These are brand →
 generic identity facts, not dose advice.
 
@@ -278,6 +279,6 @@ the other rows later — fill them only from real output:
 
 | Variant | CNN name acc. | Combined acc. | Unsafe-GREEN | Notes |
 |---|---|---|---|---|
-| none (default) | 0.0% | 48.9% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers + 28 verified brands (v1 was 4.2%) |
+| none (default) | 0.0% | 48.9% | 0 | measured 23 Nov 2026, 10 samples, v2 two readers + 25 verified brands (v1 was 4.2%) |
 | shadow + CLAHE | _fill_ | _fill_ | _fill_ | |
 | + deskew + auto-crop (all) | _fill_ | _fill_ | _fill_ | |
