@@ -44,6 +44,34 @@ showed `CNN ready · test acc 0.959` and `Gemini key: yes`.
 This proves both AI readers run live together. It is **not** an accuracy claim;
 the accuracy claim is only the held-out test number in section 1.
 
+## 1c. External localization test on 200 real prescriptions (22 Nov 2026)
+
+Public dataset: *A Curated Bangladesh-Based Dataset of Handwritten* — 200
+prescription photos with **1,086 YOLO boxes** marking medicine-line positions
+(single class `medicine`). The boxes contain **positions, not medicine names**,
+so this is a **localization** result, never a name-accuracy result.
+
+`tools/evaluate_localization.py` reads the dataset ZIP directly (no network,
+no training). A ground-truth box counts as found when a detected line box
+overlaps it with IoU ≥ 0.3.
+
+| Variant | Medicine-line recall | Precision | Reading |
+|---|---|---|---|
+| none (app default) | **0.6259** | 0.2016 | baseline |
+| shadow removal | 0.6361 | 0.2015 | +0.010 recall, no precision gain |
+| + CLAHE | 0.6152 | 0.1881 | worse |
+| + deskew | 0.6141 | 0.1861 | worse |
+
+Raw per-image output: `results/localization_test_log.csv` and
+`results/localization_summary.json`.
+
+**Honest reading:** about 63% of annotated medicine lines are found on unseen
+real handwriting, and the detector also picks up header/test-name lines
+(precision ≈ 0.20). This is why screen 1 asks the user to drag a crop box around
+the medicine lines, and why preprocessing stays off by default — it did not
+help on this external set. This measured domain gap is *not* a claim that the
+CNN reads these whole photos at 0.9590.
+
 ## 2. Handwritten prescription test (10–12 samples) — pending
 
 Every row must be a fresh prescription handwritten by a volunteer, with an
@@ -98,13 +126,17 @@ Results must stay blank until the real test is run. No number is invented.
 .\venv\Scripts\python.exe tests\test_evaluation.py
 .\venv\Scripts\python.exe tests\test_reminders.py
 .\venv\Scripts\python.exe tests\test_preprocess.py
+tests\test_localization.py
 .\venv\Scripts\python.exe tools\verify_model.py
+.\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
 ```
 
 ## 5. Optional preprocessing ablation — pending
 
 `rxbondhu/preprocess.py` provides switchable shadow removal → CLAHE → deskew →
-auto-crop. It is **off by default** until measured on real handwriting. Run
+auto-crop. It is **off by default** until measured on real handwriting. The
+external 200-image localization ablation is already reported in section 1c;
+the name/dose ablation below still needs the 12 handwritten samples. Run
 `tools/evaluate_handwritten.py --preprocess` and fill this table only from real
 output:
 

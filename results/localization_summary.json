@@ -1,0 +1,25 @@
+{
+  "dataset": "A Curated Bangladesh-Based Dataset of Handwritten (public)",
+  "images": 200,
+  "annotated_medicine_boxes": 1086,
+  "iou_threshold": 0.3,
+  "variants": {
+    "none": {
+      "mean_recall": 0.6259,
+      "mean_precision": 0.2016
+    },
+    "shadow": {
+      "mean_recall": 0.6361,
+      "mean_precision": 0.2015
+    },
+    "clahe": {
+      "mean_recall": 0.6152,
+      "mean_precision": 0.1881
+    },
+    "deskew": {
+      "mean_recall": 0.6141,
+      "mean_precision": 0.1861
+    }
+  },
+  "note": "Localization only: YOLO boxes mark medicine-line positions, not brand names. This is NOT name accuracy. The 'all' variant is omitted because auto_crop changes image dimensions."
+}

@@ -7,6 +7,11 @@ so the review screen can highlight where a reading came from.
 
 from pathlib import Path
 
+# _prepare() upscales narrow images before thresholding. Box coordinates it
+# returns are in prepared pixels, so external evaluators must divide by this
+# factor to compare them with boxes in the original image.
+UPSCALE_BELOW_WIDTH = 600
+
 
 def _cv():
     try:
@@ -20,7 +25,7 @@ def _prepare(image):
     import numpy as np
     cv2 = _cv()
     rgb = np.asarray(image.convert("RGB"))
-    if rgb.shape[1] < 600:  # upscale small crops for more reliable contours
+    if rgb.shape[1] < UPSCALE_BELOW_WIDTH:  # upscale small crops for more reliable contours
         scale = 2
         rgb = cv2.resize(rgb, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)

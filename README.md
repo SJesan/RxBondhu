@@ -78,7 +78,7 @@ streamlit run app.py
 
 Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the reader only.
 
-Tests (no network needed, 39 tests across 6 files):
+Tests (no network needed, 42 tests across 7 files):
 
 ```bash
 .\venv\Scripts\python.exe tests\test_core.py
@@ -87,6 +87,7 @@ Tests (no network needed, 39 tests across 6 files):
 .\venv\Scripts\python.exe tests\test_evaluation.py
 .\venv\Scripts\python.exe tests\test_reminders.py
 .\venv\Scripts\python.exe tests\test_preprocess.py
+.\venv\Scripts\python.exe tests\test_localization.py
 ```
 
 These also run automatically on every push via GitHub Actions (badge above).
@@ -98,6 +99,12 @@ Real-handwriting evaluation runner (needs your answer key + Rx photos; never inv
 ```
 
 It writes `results/handwritten_test_log.csv` and a JSON summary with **name accuracy (CNN / Gemini / Combined), dose accuracy, unsafe-GREEN rate, catch rate and over-flag rate**. Template: [`results/answer_key_template.csv`](results/answer_key_template.csv).
+
+External localization check on 200 real handwritten prescriptions (positions only, **not** name accuracy):
+
+```bash
+.\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
+```
 
 Evaluation table and judge proof: [`docs/EVALUATION.md`](docs/EVALUATION.md).  
 Detailed 10-page project report (architecture, training, evaluation, rule compliance, demo script, Q&A): [`docs/RxBondhu_Project_Report.pdf`](docs/RxBondhu_Project_Report.pdf).
