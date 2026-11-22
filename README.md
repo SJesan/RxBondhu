@@ -62,7 +62,7 @@ Flow: `photo → crop → segment.py → (vlm.py reader 1 + vlm.py reader 2 + re
 - **OpenCode** (AI coding agent, model Big Pickle) — planning, writing and debugging the code, README and presentation drafts; created the full plan in `docs/PLAN.md`.
 - **Google Gemini** (Google AI Studio) — the two in-app photo readers that produce medicine names and dose text from the image: `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` (one key, no hard-coded output). `gemini-2.5-flash` was also used during v1 testing and hit its daily quota.
 - **Groq + `qwen/qwen3.8-27b`** — used only for a 10-image, 48-line second-reader bake-off on 22–23 Nov. It failed the locked gate, so it is **not** in the app and no Groq key is needed to run it.
-- **Rakin** — recorded the demo video (3-minute backup) for the submission.
+- **Rakin** — credited for the ≤3-minute backup demo video (still pending on 23 Nov).
 - **Other AI tools used outside this project are not part of this build and are not claimed here.**
 
 All models/APIs above are real and run live; no output is hard-coded or faked.
