@@ -32,8 +32,8 @@
 - [ ] Exact reporting/check-in time from organiser email or helpline
 - [x] Organiser GitHub account form submitted (confirmed 23 Nov)
 - [x] Real-handwriting table filled from 10 samples / 48 lines (no invented numbers) — see [`docs/EVALUATION.md`](EVALUATION.md) and [`docs/HANDWRITTEN_TEST_GUIDE.md`](HANDWRITTEN_TEST_GUIDE.md)
-- [x] GitHub Actions badge green after the Phase 0 push (commit `f036b6e`)
-- [ ] CI green again after the final DGDA push
+- [x] GitHub Actions badge green after the Phase 0 push (commit `f036b6e`, CI #30)
+- [x] CI green again after the final DGDA push (commit `b24443a`, CI #31)
 - [ ] Live Streamlit app confirmed public (anonymous `/_stcore/health` = 200)
 - [x] DGDA export downloaded once, sha256 + date recorded, filtered snapshot committed, no runtime fetch
 - [ ] Backup video recorded by **Rakin** (≤3 min, unlisted — still pending 23 Nov)
