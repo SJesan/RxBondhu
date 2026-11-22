@@ -1,0 +1,69 @@
+{
+  "seed": 42,
+  "brands": 18,
+  "synthetic_pairs": {
+    "train": 3344,
+    "test": 836
+  },
+  "synthetic_test": {
+    "rapidfuzz_correct": 449,
+    "char_cnn_correct": 832,
+    "total": 836
+  },
+  "real_line_probe": {
+    "rapidfuzz": {
+      "available": true,
+      "correct": 11,
+      "total": 192,
+      "accuracy": 0.0573,
+      "per_log": {
+        "gemini_31_bakeoff_log.csv": {
+          "correct": 3,
+          "total": 48
+        },
+        "gemini_bakeoff_log.csv": {
+          "correct": 2,
+          "total": 48
+        },
+        "gemini_lite_bakeoff_log.csv": {
+          "correct": 3,
+          "total": 48
+        },
+        "groq_bakeoff_log.csv": {
+          "correct": 3,
+          "total": 48
+        }
+      }
+    },
+    "char_cnn": {
+      "available": true,
+      "correct": 11,
+      "total": 192,
+      "accuracy": 0.0573,
+      "per_log": {
+        "gemini_31_bakeoff_log.csv": {
+          "correct": 3,
+          "total": 48
+        },
+        "gemini_bakeoff_log.csv": {
+          "correct": 2,
+          "total": 48
+        },
+        "gemini_lite_bakeoff_log.csv": {
+          "correct": 3,
+          "total": 48
+        },
+        "groq_bakeoff_log.csv": {
+          "correct": 3,
+          "total": 48
+        }
+      }
+    }
+  },
+  "gate": {
+    "beats_baseline_synthetic": true,
+    "beats_baseline_real": false,
+    "pass": false
+  },
+  "note": "Trained only on synthetic spellings of verified brand names; real-line probe is read-only evaluation."
+}

@@ -25,6 +25,9 @@ results/handwritten_cnn_only_*
 results/*_bakeoff_log.csv
 results/*_bakeoff_summary.json
 
+# RxFusion experiment checkpoint: gate failed, so it is NOT shipped in the app
+models/rx_fusion.pt
+
 # Source documents kept locally for reference (not part of the app)
 rulebook.pdf
 RxBondhu_*.docx
