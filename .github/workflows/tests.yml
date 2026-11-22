@@ -26,4 +26,4 @@ jobs:
             python "$f" || exit 1
           done
       - name: Compile check
-        run: python -m py_compile app.py rxbondhu/*.py tools/evaluate_handwritten.py
+        run: python -m py_compile app.py rxbondhu/*.py tools/evaluate_handwritten.py tools/evaluate_localization.py
