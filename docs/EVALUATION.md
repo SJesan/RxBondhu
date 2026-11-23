@@ -266,6 +266,7 @@ this is a controlled before/after, not a comparison between two different API ru
 |---|---|---|---|---|
 | **Before import** — 25-brand box list, legacy 70 score | **1/7 = 0.1429** | 7 | 26/47 (0.5532) | 0.9524 |
 | **After import** — DGDA snapshot, candidate 90, GREEN ≥95 | **0/12 = 0.0000** | 12 | 24/47 (0.5106) | **1.0** |
+| **After DAR-gate (shipped)** — box-only identities capped at YELLOW | **0/14 = 0.0000** | 14 | 24/47 (0.5106) | **1.0** |
 
 **Gate result:** unsafe-GREEN **fell** from 0.1429 to 0, so the kill switch was
 **not** triggered. Combined accuracy dropped by 2/47 because fuzzy matches no
@@ -324,6 +325,36 @@ and `results/handwritten_override_summary.json` / `results/handwritten_override_
 hallucinate the *same* real DGDA brand on an unreadable line, this rule will not
 catch it — the final human check is the backstop.
 
+### 2f. DAR-gated GREEN and box-only identity wording (23 Nov 2026)
+
+A GREEN badge must never sit next to “DGDA not matched”. Fusion now requires the
+matched row to carry a **DGDA DAR No**. Exact box/pharmacist-only identities
+(`Napa`, `Fexo`, `Ace`, ...) are capped at **YELLOW** with the exact wording
+`Verified by box check, not found in DGDA snapshot — confirm on paper`. The card
+explains the quarantined conflict (e.g. `Napa` maps to both `caffeine +
+paracetamol` and `paracetamol`; no clean DGDA `Fexo` row exists). A missing name
+is `Not found in DGDA snapshot — check the box`, never “not approved”.
+
+Contradictory CNN guesses are no longer printed as readings in the main view:
+it shows `CNN: not applicable to this name`, while the raw guess and confidence
+remain in **More info** with the note that the 78-class model was trained on
+clean word crops.
+
+Re-scored with the same cached Gemini responses (`--cache results/vlm_cache.jsonl`):
+
+| Configuration | GREEN lines | Unsafe-GREEN | Combined name accuracy | Catch rate | Over-flag |
+|---|---|---|---|---|---|
+| DGDA import + exact-dual override (§2e) | 19 | 0/19 (0.0000) | 24/47 (0.5106) | 1.0 | 3/24 (0.1250) |
+| **DAR-gated GREEN (shipped)** | **14** | **0/14 (0.0000)** | **24/47 (0.5106)** | **1.0** | 4/24 (0.1667) |
+
+**Gate result:** unsafe-GREEN stayed at zero and catch rate stayed at 1.0. Five
+box-only GREEN lines became YELLOW; over-flag rose from 0.1250 to 0.1667, which
+is the intended conservative trade-off. Logs: `results/handwritten_boxcap_log.csv`
+and `results/handwritten_boxcap_summary.json`.
+
+Note: this cache run reports Reader 1 27/47 and Reader 2 32/47 (Gemini output
+varies slightly between runs); combined accuracy is unchanged at 24/47.
+
 ### DGDA source and provenance
 
 - Portal verified as **Directorate General of Drug Administration** (`<title>`
@@ -338,8 +369,9 @@ catch it — the final human check is the backstop.
 - Spot-check conflicts flagged for the owner, **no silent override**:
   `Napa` / `Ace` — DGDA also has `Caffeine + Paracetamol` rows while the box
   check says `Paracetamol`; `Fexo` — DGDA says `Fexofenadine Hydrochloride`,
-  box note says `Fexofenadine`. The manual box row wins in the shipped lexicon
-  and every case remains in the conflict log.
+  box note says `Fexofenadine`, and there is no clean DGDA `Fexo` row. The box
+  row is kept for **identity display only**, is capped at YELLOW (§2f), and
+  every case remains in the conflict log.
 - **Claim limit:** “DGDA-registered (DAR No …)” in an Allopathic export as of
   the access date. Not “all approved medicines in Bangladesh”, not dose advice,
   and **a missing name is UNVERIFIED, not “not approved”**. Kaggle/MedEx was
@@ -360,6 +392,9 @@ real line.
 | Unknown brand a reader saw | Amsocal plus / Eltroxin / Amdocal plus → editable name, badge UNVERIFIED (never GREEN) |
 | Close spelling disagreement | Panicel vs Paricel → RED, user confirms |
 | DGDA identity card | Screen 2 shows DAR No / form / company; no price, indication or dose advice |
+| Box-only identity | Napa / Fexo / Ace are YELLOW with `Verified by box check, not found in DGDA snapshot` |
+| Conflicting CNN guess | Main view says `CNN: not applicable to this name`; raw guess only in More info |
+| One reader offline | Named in a warning, other reader continues, every line capped at YELLOW |
 | Duplicate generic in combinations | `Amlodipine + Atenolol` vs `Atenolol + Amlodipine` → one warning (unit test) |
 | Low confidence | RED badge + "confirm with pharmacist" |
 | Line-level reading | One review row per medicine line, not per word fragment |
@@ -368,13 +403,15 @@ real line.
 ## 4. Reproduce locally
 
 ```bash
-.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 97 tests, no network
+.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 129 tests, no network
 .\venv\Scripts\python.exe tools\verify_model.py
 .\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
 ```
 
-The full v2 real-photo run itself needs a `GEMINI_API_KEY` and the local answer
-key: `.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results/answer_key.csv --images results/rx --out results/handwritten_v2_test_log.csv --summary results/handwritten_v2_summary.json`.
+The full real-photo run needs the local answer key; add `--cache results/vlm_cache.jsonl`
+to replay committed real Gemini responses with no new API spend:
+`.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results/answer_key.csv --images results/rx --cache results/vlm_cache.jsonl --out results/handwritten_boxcap_log.csv --summary results/handwritten_boxcap_summary.json`.
+Without the cache it needs a `GEMINI_API_KEY`.
 
 ## 5. Optional preprocessing ablation — pending
 

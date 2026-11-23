@@ -19,7 +19,7 @@ pinned: false
 
 **Hackathon:** CoU AI Hackathon 2026 · Healthcare & Wellbeing  
 **Team:** Solo · **Member:** M M Sadikul Islam Jesan  
-**Status (23 Nov 2026):** Three modern screens with **light (default) / dark themes via a sidebar icon toggle**, two independent Gemini photo readers, our own fine-tuned CNN as safety veto (set aside only when both readers make an exact 100 match to the same DGDA brand), soft UNVERIFIED badge, rear-camera capture, 92% crop default with the cropper as the **only** photo preview, six **click-to-use** fictional demo Rx thumbnails, a CSS capsule animation while the readers work, a one-screen compact sidebar, compact DGDA cards with **More info**, calendar links, one-click all-medicine Google event, .ics and prepared WhatsApp text all work. Brand identity is now checked against a **committed DGDA Allopathic snapshot** (41,655 source rows → 23,804 verified entries with DAR No; 888 conflicting keys quarantined). **GREEN requires a ≥95 normalised match from both readers** — a fuzzy-only match is capped at YELLOW. Our CNN was trained on Kaggle T4: **validation 0.9577, test 0.9590 (748/780)** across 78 brands (clean word crops — real-photo numbers are reported separately). Full log: [`results/kaggle_training_log.txt`](results/kaggle_training_log.txt) · proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
+**Status (23 Nov 2026):** Three guided screens, **Large text by default**, light (default) / dark themes, one-line hero on screens 2–3, two independent Gemini photo readers, our own fine-tuned CNN as a safety veto (set aside only for an exact 100/100 dual match to the same **DAR-backed** DGDA brand), rear-camera capture with an obvious upload fallback, 92% crop default hidden under **Advanced**, one-sentence crop help plus a sample image, six **click-to-use** fictional demo Rx thumbnails, `দুটি AI পড়ছে…` loader, compact DGDA cards with **More info**, Bangla-first schedule table with big ✓ and Bangla digits, one main `শুনুন` button, and working .ics / Google Calendar / prepared WhatsApp text. Brand identity is checked against a **committed DGDA Allopathic snapshot** (41,655 source rows → 23,804 verified entries; 888 conflicting keys quarantined). **GREEN needs both readers to agree at ≥95 on a DGDA row with a DAR No**; a box-checked-only identity (Napa, Fexo, Ace) is YELLOW with explicit wording, and fuzzy-only is YELLOW at most. Our CNN was trained on Kaggle T4: **validation 0.9577, word-crop test 0.9590 (748/780)** across 78 brands — real-photo numbers are reported separately. Proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
 ---
 
@@ -31,21 +31,40 @@ RxBondhu reads the medicine area with **two AI models**, checks every name again
 
 ## 2. Features and how the AI works
 
-1. **Photo + crop** — upload or use the phone rear camera; default crop covers 92% of the photo with a coverage slider and an "already cropped" option.
+1. **Photo + crop** — upload or use the phone rear camera; crop help plus a small sample image show how to box only the medicine lines. The 92% default margin is under **Advanced**, and the cropper is the only photo preview. Photos are session-only: `ছবি সংরক্ষণ করা হয় না`.
 2. **Find lines** — OpenCV groups handwritten words into lines; each review row is one medicine line.
-3. **Three readings** — two independent Gemini models read the photo; our own fine-tuned CNN reads word crops as a safety veto and proof of an own model. An exact dual-DGDA match overrides an out-of-distribution CNN guess; spelling disagreements stay RED.
+3. **Three readings** — two independent Gemini models read the photo; our own fine-tuned CNN reads word crops as a safety veto and proof of an own model. A conflicting CNN guess is not shown as a reading in the main view (`CNN: not applicable to this name`); its raw score stays in **More info**. An exact 100/100 dual match to a DAR-backed DGDA brand may set aside an out-of-distribution CNN guess, and the reason says so; spelling disagreements stay RED.
 4. **DGDA-registered brand matching** — a committed snapshot of the official DGDA Allopathic export (`data/dgda_brands.csv`, 23,804 verified brand→generic entries with DAR No, source URL and access date) plus 10 box/pharmacy-checked rows. Bulk/API rows and 888 conflicting generic identities are quarantined in `data/dgda_conflicts.csv`. No runtime network call; `data/dgda_source.json` records the sha256 and access date.
    **Wording limit:** “DGDA-registered” is an identity check against that export — it is not dose advice and not a medical approval. A name missing from the export is **UNVERIFIED, never “not approved”**.
-5. **Fusion colours** — GREEN = both readers agree on the same verified brand **with ≥95 normalised match**; an exact (100) dual match also overrides a CNN veto (the 78-class CNN is out of distribution on real prescriptions); YELLOW = one reader confident, or both agree but only fuzzy (85–94.9); 🔍 UNVERIFIED = readable with no reliable DGDA candidate (editable, never GREEN); RED = direct disagreement / close spelling disagreement / CNN contradiction unless there is an exact dual match / low confidence / user flag.
+5. **Fusion colours** — GREEN = both readers agree on the same **DGDA row with a DAR No** at ≥95 normalised match, with no unhandled CNN contradiction; an exact 100 dual match may override an out-of-distribution CNN guess; YELLOW = one reader offline/confident, fuzzy agreement (85–94.9), or a **box-checked-only identity** (Napa/Fexo/Ace — “Verified by box check, not found in DGDA snapshot”); 🔍 UNVERIFIED = readable with no verified candidate (editable, never GREEN); RED = direct disagreement / close spelling disagreement / CNN contradiction / low confidence / user flag. Fuzzy-only never reaches GREEN.
 6. **Review screen** — user confirms/fixes every name and dose. Nothing becomes a schedule before this.
 7. **Dose parser** — `1+0+1`, `BD`, `TDS`, `HS`, Bangla dose notes → schedule.
 8. **Safety check** — two brands with the same generic trigger a non-blocking duplicate-generic warning; ingredient order in combinations is canonicalised so `Amlodipine + Atenolol` and `Atenolol + Amlodipine` match. No mg ceiling is claimed.
-8b. **DGDA record card** — Screen 2 shows a compact generic / DAR No / strength / form card beside each line and a **More info** expander with company, source, access date and full record; Screen 3 shows a compact “DGDA-registered · DAR …” note. DGDA has no indication field, so the UI never claims “what it works for”, price or clock time.
-9. **Modern light + dark UI** - 3 guided screens, CSS variables with **light default and sidebar 🌙/☀️ toggle** (dark mode uses softer emerald and dark button ink for contrast), one-screen compact sidebar with the full AI disclosure, compact model chips plus a details expander, small **click-to-use** fictional demo Rx thumbnails in `assets/demo/` (replaceable), an animated two-tone capsule while the models read, "Made by Team Zero-Shot" credit, cards with subtle CSS 3D tilt, and a locally bundled Three.js capsule hero (`static/three.min.js`).
-10. **Bangla schedule + audio** — Bangla table (no colour column), always-visible Bangla summary and spoken summary (MMS-TTS, gTTS backup).
-11. **Calendar & sharing** — one-click Google Calendar links (Asia/Dhaka, example 08:00/13:00/21:00), a repeating `.ics`, a new **Add all medicines once** button that opens one Google Calendar overview event, working prepared WhatsApp text, and disabled **Email reminder / Call reminder — Coming soon** placeholders. The app never sends messages or books events for you.
+8b. **Identity card** — Screen 2 shows a compact generic / DAR No / strength / form card beside each line and a **More info** expander with company, source, access date, conflict detail and the raw CNN guess. Screen 3 uses `DGDA-registered (DAR No …)` or `Verified by box check, not found in DGDA snapshot`. Every card says **identity only, not dose advice**; no “approved”, “not approved”, price, indication or clock time.
+9. **Readable light + dark UI** — Large text by default (18px minimum), every button ≥48px, bigger 1/2/3 step indicator, high-contrast light theme, one card per medicine with more padding, one-line hero on screens 2–3, ≤2 sidebar chips (`Groq not shipped` moved into Model info), neutral grey `Not sure?` instead of a red flag button, `Team Zero-Shot` credit, click-to-use fictional demo images, and a locally bundled Three.js capsule hero on screen 1.
+10. **Bangla-first schedule + audio** — Bangla labels first with small English, big ✓ and Bangla digits, `দিন লেখা নেই — নিশ্চিত করুন` when days are missing, plain status lines under badges, Bangla summary + table before calendar/WhatsApp, one main `শুনুন` button above per-medicine audio (MMS-TTS, gTTS backup).
+11. **Calendar & sharing** — one-click Google Calendar links (Asia/Dhaka), a repeating `.ics`, **Add all medicines once**, and prepared WhatsApp text. No “Coming soon” Email/Call buttons; the app never sends messages or books events for you.
 
-Flow: `photo → crop → segment.py → (vlm.py reader 1 + vlm.py reader 2 + recognizer.py CNN veto, overridden only by an exact dual-DGDA match) → lexicon.py → fusion.py → review → dose_parser.py → safety.py → bangla.py/tts.py`.
+Flow: `photo → crop → segment.py → (vlm.py reader 1 + reader 2 + recognizer.py CNN veto, overridden only by an exact 100/100 dual match on a DAR-backed row) → lexicon.py → fusion.py → review → dose_parser.py → safety.py → bangla.py/tts.py`.
+
+## Results at a glance
+
+| Measure | Result | Meaning / limit |
+|---|---|---|
+| CNN **word-crop test accuracy** | **0.9590 (748/780)** | Clean single-word images from our Kaggle split. **Not** whole-photo accuracy. |
+| CNN on our real prescription photos | **0/47 (0%)** | Its 78 classes do not cover these brands; used as veto/proof, not general reader. |
+| Reader 1 `gemini-3.5-flash-lite` | 27/47 (57.4%) | Names matched to the answer key. |
+| Reader 2 `gemini-3.1-flash-lite` | 32/47 (68.1%) | Names matched to the answer key. |
+| Combined name shown | 24/47 (51.1%) | Fusion output without human correction. |
+| Dose notation | 8/48 (16.7%) | `1+0+1`, BD, TDS, Bangla notes. |
+| Unsafe-GREEN **before** DGDA import | **1/7 = 0.1429** | 25-brand box list, legacy 70 score. |
+| Unsafe-GREEN **after** DGDA import | **0/12 = 0.0000** | DGDA snapshot, candidate 90, GREEN ≥95. |
+| Unsafe-GREEN after exact-dual override | 0/19 = 0.0000 | Override kept unsafe-GREEN at zero. |
+| Unsafe-GREEN **after DAR-gate** | **0/14 = 0.0000** | Box-only identities capped at YELLOW (shipped). |
+| Catch rate | **1.0** (23/23) | Every wrong reading was flagged, never GREEN. |
+| Over-flag rate | 4/24 = 0.1667 | Correct names shown RED; conservative by design. |
+
+**Method note.** The real-photo test uses **10 handwritten prescriptions from one writer** (48 review lines), so it is a same-writer safety check, not a population accuracy claim. The 5-image dev / 5-image holdout split was fixed before scoring: candidate threshold 90 was picked on dev rows 1–5 and reported once on rows 6–10; `GREEN_SCORE = 95` is a safety policy, not tuned. Before/after runs reuse the same cached real Gemini responses, so only the lexicon/rule changed. Gemini output varies slightly between runs; these numbers come from the committed cache run. Full logs: [`docs/EVALUATION.md`](docs/EVALUATION.md) and `results/handwritten_boxcap_*`.
 
 ## 3. Tech stack, models, APIs, datasets
 
@@ -62,13 +81,16 @@ Flow: `photo → crop → segment.py → (vlm.py reader 1 + vlm.py reader 2 + re
 
 ## 4. AI tools used and for what (disclosure)
 
-- **OpenCode** (AI coding agent, model Big Pickle) — planning, writing and debugging the code, README and presentation drafts; created the full plan in `docs/PLAN.md`.
-- **Google Gemini** (Google AI Studio) — the two in-app photo readers that produce medicine names and dose text from the image: `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` (one key, no hard-coded output). `gemini-2.5-flash` was also used during v1 testing and hit its daily quota.
-- **Groq + `qwen/qwen3.8-27b`** — used only for a 10-image, 48-line second-reader bake-off on 22–23 Nov. It failed the locked gate, so it is **not** in the app and no Groq key is needed to run it.
-- **Rakin** — credited for the ≤3-minute backup demo video (still pending on 23 Nov).
-- **Other AI tools used outside this project are not part of this build and are not claimed here.**
+- **OpenCode** (AI coding agent, **Big Pickle**) — planning, coding, debugging and drafting all project docs.
+- **Google Gemini / Google AI Studio** — in-app photo readers `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite`; `gemini-2.5-flash` was used in v1 testing and hit its free quota. No output is hard-coded.
+- **Groq + `qwen/qwen3.8-27b`** — 10-image second-reader bake-off only; failed the locked gate, **not shipped** and no Groq key is needed.
+- **RxFusion char-CNN** — our own failed experiment, disclosed in `docs/EVALUATION.md`, **not shipped**.
+- **Our own EfficientNet-B0 CNN** — fine-tuned by us on the Kaggle *Doctor's Handwritten Prescription BD* dataset; used as a safety veto and proof of a trained model.
+- **External data sources** — official **DGDA Allopathic Medicine Information export** (23 Nov 2026, identity reference only) and the **Kaggle/MedEx “Assorted Medicine Dataset of Bangladesh” (~25k rows)**, which was evaluated as a lexicon source and **superseded**; neither is used for dose advice. The 200-prescription public localization set was used for position-only evaluation.
+- **Speech/3D assets** — `facebook/mms-tts-ben`, gTTS fallback, and locally bundled Three.js (no CDN call).
+- **Rakin** — recorded the ≤3-minute unlisted backup demo video (pending on 23 Nov).
 
-All models/APIs above are real and run live; no output is hard-coded or faked.
+All models/APIs above are real; no output is hard-coded or faked.
 
 ## 5. Third-party code and assets credited
 
@@ -86,7 +108,7 @@ streamlit run app.py
 
 `GROQ_API_KEY` in `.env.example` is a placeholder for the rejected bake-off only — the app never calls Groq. Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the readers only.
 
-Tests (no network needed, 97 tests across 14 files):
+Tests (no network needed, 129 tests across 18 files):
 
 ```bash
 .\venv\Scripts\python.exe -m unittest discover -s tests -q
@@ -97,10 +119,10 @@ These also run automatically on every push via GitHub Actions (badge above).
 Real-handwriting evaluation runner (needs your answer key + Rx photos; never invents results):
 
 ```bash
-.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results\answer_key.csv --images results\rx
+.\venv\Scripts\python.exe tools\evaluate_handwritten.py --answers results\answer_key.csv --images results\rx --cache results\vlm_cache.jsonl --out results\handwritten_boxcap_log.csv --summary results\handwritten_boxcap_summary.json
 ```
 
-It writes `results/handwritten_test_log.csv` and a JSON summary with **name accuracy (CNN / Gemini / Combined), dose accuracy, unsafe-GREEN rate, catch rate and over-flag rate**. Template: [`results/answer_key_template.csv`](results/answer_key_template.csv).
+It writes the named log/summary with **name accuracy (CNN / reader 1 / reader 2 / Combined), dose accuracy, unsafe-GREEN rate, catch rate and over-flag rate**. Template: [`results/answer_key_template.csv`](results/answer_key_template.csv). The answer key and photos stay local/private (gitignored); only derived metrics are committed.
 
 External localization check on 200 real handwritten prescriptions (positions only, **not** name accuracy):
 
@@ -122,4 +144,15 @@ The CNN was trained on Kaggle: GPU T4 + Internet On, dataset added as Input, `tr
 
 ## Safety and limits
 
-RED items say "please confirm with your pharmacist". UNVERIFIED names are shown as editable defaults, never GREEN and never auto-accepted; **UNVERIFIED means “not in our verified reference”, never “not approved”** — only DGDA determines approval. The DGDA card gives recorded identity fields only. GREEN needs ≥95 from both readers; a CNN contradiction still blocks GREEN unless both readers make an exact (100) match to the same DGDA brand, in which case the out-of-distribution CNN guess is disclosed in the reason text and ignored. A fuzzy-only match is capped at YELLOW. The app covers a filtered snapshot and limited handwriting styles — that is why human confirmation is built in on Screen 3. See [`docs/EVALUATION.md`](docs/EVALUATION.md) for the 0.9590 word-crop accuracy and the separate real-photo numbers.
+RED says `ফার্মাসিস্টকে জিজ্ঞাসা করুন`. UNVERIFIED is editable, never GREEN and never auto-accepted; it means **“not in our verified reference”**, never “not approved”. Cards give recorded identity fields only and say **identity only, not dose advice**. GREEN needs both readers at ≥95 on a **DGDA row with a DAR No**; a box-checked-only identity is YELLOW with `Verified by box check, not found in DGDA snapshot`, and fuzzy-only is YELLOW at most. A CNN contradiction blocks GREEN unless both readers make an exact 100/100 match on a DAR-backed row; the raw CNN guess then lives in More info while the main view says `CNN: not applicable to this name`. Human confirmation is mandatory on Screen 3. See [`docs/EVALUATION.md`](docs/EVALUATION.md) for the separate word-crop and real-photo numbers.
+
+### Known limits (honest)
+- 10 real prescriptions from **one writer**; thresholds tuned on 5 dev rows and reported once on 5 holdout rows. Not a population-level accuracy claim.
+- The 0.9590 number is **word-crop test accuracy**, not whole-photo accuracy; our CNN scored 0/47 on these real photos.
+- A brand not in the DGDA snapshot is **UNVERIFIED** (or box-check YELLOW), never a regulatory judgement.
+- No dose advice, no interaction database, no indication/price claims, and **no clinical validation**.
+
+### Next steps
+- Larger multi-writer study with pharmacist review.
+- Offline mode and wider handwriting styles.
+- Clinical validation before any real-world use.
