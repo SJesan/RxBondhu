@@ -44,6 +44,7 @@ RxBondhu reads the medicine area with **two AI models**, checks every name again
 9. **Readable light + dark UI** — Large text by default (18px minimum), every button ≥48px, bigger 1/2/3 step indicator, high-contrast light theme, one card per medicine with more padding, one-line hero on screens 2–3, ≤2 sidebar chips (`Groq not shipped` moved into Model info), neutral grey `Not sure?` instead of a red flag button, `Team Zero-Shot` credit, click-to-use fictional demo images, and a locally bundled Three.js capsule hero on screen 1.
 10. **Bangla-first schedule + audio** — Bangla labels first with small English, big ✓ and Bangla digits, `দিন লেখা নেই — নিশ্চিত করুন` when days are missing, plain status lines under badges, Bangla summary + table before calendar/WhatsApp, one main `শুনুন` button above per-medicine audio (MMS-TTS, gTTS backup).
 11. **Calendar & sharing** — one-click Google Calendar links (Asia/Dhaka), a repeating `.ics`, **Add all medicines once**, and prepared WhatsApp text. No “Coming soon” Email/Call buttons; the app never sends messages or books events for you.
+12. **Multi-prescription mode (branch `multi-image`, not merged)** — the single-photo flow is unchanged; a separate “Multiple prescriptions (2–3 photos)” uploader accepts 1–3 images (extra files are capped at 3 with a friendly warning). Each image has its own crop box and stays a separate group until confirmation. Reads are sequential (`Prescription 1 of 3…`), the button is locked for the whole loop, and each result is cached in-session by `sha256(image bytes + crop box)` so the same crop never spends quota twice. A failed or empty image shows a Bangla+English warning on that image only; the others still work. Screen 2 labels each line `Prescription N · line M`, and Screen 3 merges **only user-confirmed** rows, re-running the existing duplicate-generic check plus a non-blocking cross-prescription warning (`একাধিক প্রেসক্রিপশনে একই জেনেরিক আছে …`). No fusion, lexicon, DGDA or threshold logic was changed.
 
 Flow: `photo → crop → segment.py → (vlm.py reader 1 + reader 2 + recognizer.py CNN veto, overridden only by an exact 100/100 dual match on a DAR-backed row) → lexicon.py → fusion.py → review → dose_parser.py → safety.py → bangla.py/tts.py`.
 
@@ -108,7 +109,7 @@ streamlit run app.py
 
 `GROQ_API_KEY` in `.env.example` is a placeholder for the rejected bake-off only — the app never calls Groq. Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the readers only.
 
-Tests (no network needed, 137 tests across 19 files):
+Tests (no network needed; 148 tests across 20 files on this branch, 137 on `main`):
 
 ```bash
 .\venv\Scripts\python.exe -m unittest discover -s tests -q
@@ -151,6 +152,7 @@ RED says `ফার্মাসিস্টকে জিজ্ঞাসা ক�
 - The 0.9590 number is **word-crop test accuracy**, not whole-photo accuracy; our CNN scored 0/47 on these real photos.
 - A brand not in the DGDA snapshot is **UNVERIFIED** (or box-check YELLOW), never a regulatory judgement.
 - No dose advice, no interaction database, no indication/price claims, and **no clinical validation**.
+- Multi-prescription mode is session-only: the crop cache lives in memory and is keyed on exact pixels + exact box, so a 1px crop change re-reads; three images can use up to six reader calls and the existing 5-read CNN-only guard may engage mid-set. It is on a review branch, not merged to `main`.
 
 ### Next steps
 - Larger multi-writer study with pharmacist review.
