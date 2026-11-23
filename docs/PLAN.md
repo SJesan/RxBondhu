@@ -1,6 +1,6 @@
 # RxBondhu — Full Winning Plan (Zero → Final)
 **Hackathon:** CoU AI Hackathon 2026 · Healthcare & Wellbeing  
-**Track:** Solo · **Build window:** 21–23 Nov 2026 · **Final:** 24 Nov 2026 (5 hours on-site)  
+**Track:** Team Zero-Shot · **Build window:** 21–23 Nov 2026 · **Final:** 24 Nov 2026 (5 hours on-site)
 **Plan version:** 21 Nov 2026 · **Owner:** `[CERTIFICATE_NAME]` (confirm exact spelling from registration form)  
 **Language:** Bangla + English mix, deliberately simple.
 

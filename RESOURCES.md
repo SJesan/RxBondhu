@@ -10,11 +10,13 @@
 - **facebook/mms-tts-ben** (Hugging Face) — Bangla TTS. Licence **CC-BY-NC-4.0** (non-commercial use — fine for this hackathon).
 - **gTTS** — backup Bangla speech (requires internet).
 
-## Libraries
-Python 3.11, PyTorch, torchvision, OpenCV, RapidFuzz, Streamlit, streamlit-cropper, pandas, NumPy, Matplotlib, python-dotenv, google-genai, transformers, SciPy, uroman, tabulate. Each library keeps its own open-source licence; used as-is via pip.
+## Libraries and assets
+Python 3.11, PyTorch, torchvision, OpenCV, RapidFuzz, Streamlit, streamlit-cropper, pandas, NumPy, Matplotlib,
+python-dotenv, google-genai, transformers, SciPy, uroman, tabulate — each under its own open-source licence, used via pip.
+**Three.js** (MIT licence) — bundled locally as `static/three.min.js` for the capsule animation on screen 1.
 
 ## Services
-Kaggle (free T4 GPU), GitHub (public repo), Hugging Face Spaces (live demo).
+Kaggle (free T4 GPU for training), GitHub (public repo + Actions CI), Streamlit Community Cloud (live app).
 
 ## AI tools used while building
-See README section 4. Disclose exactly what was used and for what.
+Claude (Anthropic) and OpenCode (Big Pickle) as coding assistants — see README section 4 for exactly what each was used for.

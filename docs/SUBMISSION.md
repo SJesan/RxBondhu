@@ -6,9 +6,9 @@
 
 **Short description (≤150 words):**
 
-> RxBondhu turns a handwritten Bangladeshi prescription photo into a Bangla-first morning/noon/night schedule with audio. Two independent Gemini models read the photo; my own EfficientNet-B0 CNN (4,680 public word images; held-out **word-crop** test 95.90%, 748/780) is a safety veto, set aside only when both readers exactly match the same **DAR-backed DGDA** brand. A strong 3-signal match is shown as signal-only and never makes GREEN alone. GREEN / YELLOW / UNVERIFIED / RED badges, DGDA snapshot identity checks, a text-only 23,804-name DGDA matcher for suggestion-only closest names, and duplicate/same-dose warnings keep the user in control: every line needs confirmation before a schedule appears. Built solo in Python and Streamlit with a public repo, 158 automated tests on `main`, merged multi-image mode, a live demo and honest evaluation logs. Reading aid only; not medical advice.
+> RxBondhu turns a handwritten Bangladeshi prescription photo into a Bangla-first morning/noon/night schedule with audio. Two independent Gemini models read the photo; our own EfficientNet-B0 CNN (4,680 public word images; held-out word-crop test 95.90%, 748/780) acts as a safety veto, set aside only when both readers exactly match the same DAR-backed DGDA brand. GREEN / YELLOW / UNVERIFIED / RED badges, identity checks against a 23,804-brand DGDA snapshot, suggestion-only closest names and duplicate/same-dose warnings keep the user in control: every line needs confirmation before a schedule appears. In real-photo tests, no wrong reading was ever shown GREEN and every error was flagged. Built by Team Zero-Shot in Python and Streamlit with a public repo, 158 automated tests, multi-image mode, a live demo and honest evaluation logs. Reading aid only; not medical advice.
 
-**Word count of description:** 134 (limit 150).
+**Word count of description:** 128 (limit 150).
 
 **Live link:** https://rxbondhu.streamlit.app
 **Repo:** https://github.com/SJesan/RxBondhu

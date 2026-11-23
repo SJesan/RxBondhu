@@ -18,7 +18,7 @@ pinned: false
 > **Reading aid, not a doctor.** No diagnosis, no prescribing, no drug-interaction checking. The user always confirms before a schedule appears.
 
 **Hackathon:** CoU AI Hackathon 2026 · Healthcare & Wellbeing  
-**Team:** Solo · **Member:** M M Sadikul Islam Jesan  
+**Team:** Team Zero-Shot · **Members:** M. M. Sadikul Islam (Team Leader), M. Rakinul Alam, Tanvir Mahatab Parvez Sakib
 **Status (23 Nov 2026):** Three guided screens, **Large text by default**, light (default) / dark themes, one-line hero on screens 2–3, two independent Gemini photo readers, our own fine-tuned CNN as a safety veto (set aside only for an exact 100/100 dual match to the same **DAR-backed** DGDA brand), rear-camera capture with an obvious upload fallback, 92% crop default hidden under **Advanced**, one-sentence crop help plus a sample image, six **click-to-use** fictional demo Rx thumbnails, `দুটি AI পড়ছে…` loader, compact DGDA cards with **More info**, Bangla-first schedule table with big ✓ and Bangla digits, one main `শুনুন` button, and working .ics / Google Calendar / prepared WhatsApp text. Brand identity is checked against a **committed DGDA Allopathic snapshot** (41,655 source rows → 23,804 verified entries; 888 conflicting keys quarantined) plus a **text-only DGDA name matcher** for suggestion-only closest names (not an image reader, never auto-applied). **GREEN needs both readers to agree at ≥95 on a DGDA row with a DAR No**; a box-checked-only identity (Napa, Fexo, Ace) is YELLOW with explicit wording, and fuzzy-only is YELLOW at most. A strong Reader1+Reader2+CNN agreement (>=90%) is shown as a signal only and **never upgrades to GREEN** by itself. Our CNN was trained on Kaggle T4: **validation 0.9577, word-crop test 0.9590 (748/780)** across 78 brands — real-photo numbers are reported separately. Proof: [`docs/EVALUATION.md`](docs/EVALUATION.md) · demo script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
 ---
@@ -83,14 +83,14 @@ Flow: `photo → crop → segment.py → (vlm.py reader 1 + reader 2 + recognize
 
 ## 4. AI tools used and for what (disclosure)
 
-- **OpenCode** (AI coding agent, **Big Pickle**) — planning, coding, debugging and drafting all project docs.
+- **Claude (Anthropic)** and **OpenCode (Big Pickle)** — coding assistants used during build for planning, coding, debugging, and drafting project docs. All AI-generated code/output was reviewed, tested, and adapted by the team; no output is hard-coded.
 - **Google Gemini / Google AI Studio** — in-app photo readers `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite`; `gemini-2.5-flash` was used in v1 testing and hit its free quota. No output is hard-coded.
 - **Groq + `qwen/qwen3.8-27b`** — 10-image second-reader bake-off only; failed the locked gate, **not shipped** and no Groq key is needed.
 - **RxFusion char-CNN** — our own failed experiment, disclosed in `docs/EVALUATION.md`, **not shipped**.
 - **Our own EfficientNet-B0 CNN** — fine-tuned by us on the Kaggle *Doctor's Handwritten Prescription BD* dataset; used as a safety veto and proof of a trained model.
 - **External data sources** — official **DGDA Allopathic Medicine Information export** (23 Nov 2026, identity reference only) and the **Kaggle/MedEx “Assorted Medicine Dataset of Bangladesh” (~25k rows)**, which was evaluated as a lexicon source and **superseded**; neither is used for dose advice. The 200-prescription public localization set was used for position-only evaluation.
-- **Speech/3D assets** — `facebook/mms-tts-ben`, gTTS fallback, and locally bundled Three.js (no CDN call).
-- **Rakin** — recorded the ≤3-minute unlisted backup demo video (pending on 23 Nov).
+- **Speech/3D assets** — `facebook/mms-tts-ben`, gTTS fallback, and locally bundled Three.js (`static/three.min.js`, MIT, no CDN call).
+- **M. Rakinul Alam** — recorded the ≤3-minute unlisted backup demo video (pending on 23 Nov).
 
 All models/APIs above are real; no output is hard-coded or faked.
 

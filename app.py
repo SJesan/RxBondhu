@@ -201,7 +201,7 @@ def colour_badge(colour: str) -> str:
 def screen_1():
     ui.step_header(1, "১. ছবি দিন", "Upload a prescription photo or take one, then drag a box around the medicine lines only.")
     st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
-    st.caption("Solo build for CoU AI Hackathon 2026")
+    st.caption("Team Zero-Shot · CoU AI Hackathon 2026")
     loaded = st.session_state.pop("demo_loaded", None)
     if loaded:
         st.success(f"Loaded {loaded} — drag the crop box, then read it.")
@@ -817,9 +817,9 @@ def sidebar():
             st.markdown(ui.model_info_html(info, key_ok), unsafe_allow_html=True)
         st.markdown(
             "<div class='rx-sidebar-foot'>"
-            "Built fresh for CoU AI Hackathon 2026. AI: OpenCode (Big Pickle) + "
-            "Google Gemini (2 readers) + our own CNN. Groq and RxFusion were "
-            "evaluated but not shipped.<br><b>Solo build</b></div>",
+            "Built for CoU AI Hackathon 2026 by Team Zero-Shot. AI coding assistants: "
+            "Claude (Anthropic) + OpenCode (Big Pickle). App AI: Google Gemini (2 readers) "
+            "+ our own CNN. Groq and RxFusion were evaluated but not shipped.</div>",
             unsafe_allow_html=True,
         )
 

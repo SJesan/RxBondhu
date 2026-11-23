@@ -115,7 +115,7 @@ before it becomes a schedule.**
 > "Ten real prescriptions from one writer — this is a same-writer safety check, not a
 > population accuracy claim. Our 95.90% is **word-crop test accuracy**, separate from real-photo
 > accuracy (our CNN scored 0/47 there). We do not diagnose, prescribe, run interactions, or give
-> dose advice. Built fresh for the hackathon, solo, with OpenCode (Big Pickle), two Gemini
+> dose advice. Built for the hackathon by Team Zero-Shot, with Claude and OpenCode as disclosed coding assistants, two Gemini
 > readers and our own trained CNN. Evidence in `docs/EVALUATION.md`. Live link here."
 
 ## Backup if something fails on the day
