@@ -11,7 +11,7 @@
   "unsafe_error_rate": 0.0,
   "green_lines": 14,
   "catch_rate": 1.0,
-  "overflag_rate": 0.1667,
+  "overflag_rate": 0.125,
   "raw_totals": {
     "cnn_correct": 0,
     "cnn_total": 47,
@@ -29,7 +29,7 @@
     "unsafe_green": 0,
     "wrong_combined": 23,
     "caught_wrong": 23,
-    "overflagged_correct": 4
+    "overflagged_correct": 3
   },
   "note": "Automated review uses fusion output without human correction. Dataset word-crop test accuracy (0.9590) is a separate number."
 }

@@ -6,9 +6,9 @@
 
 **Short description (≤150 words):**
 
-> RxBondhu turns a handwritten Bangladeshi prescription photo into a clear Bangla morning/noon/night schedule with audio. Two independent Gemini models read the photo, while my own EfficientNet-B0 handwriting CNN (trained on 4,680 public word images; held-out test 95.90%, 748/780) acts as a safety veto, set aside only when both readers exactly match the same DGDA brand. Explainable GREEN / YELLOW / UNVERIFIED / RED badges, a DGDA-registered brand check and duplicate-generic warnings keep the user in control: every line must be confirmed before a schedule appears. Built solo in Python and Streamlit with a public repo, 97 automated tests, a free live demo and honest evaluation logs. The modern UI has light/dark themes, click-to-use demo Rx images, a capsule loading animation, compact DGDA cards, calendar links, one-click all-medicine Google event, .ics and prepared WhatsApp text. Reading aid only; not medical advice.
+> RxBondhu turns a handwritten Bangladeshi prescription photo into a Bangla-first morning/noon/night schedule with audio. Two independent Gemini models read the photo; my own EfficientNet-B0 CNN (4,680 public word images; held-out **word-crop** test 95.90%, 748/780) is a safety veto, set aside only when both readers exactly match the same **DAR-backed DGDA** brand. GREEN / YELLOW / UNVERIFIED / RED badges, a DGDA identity check (identity only, not dose advice) and duplicate-generic warnings keep the user in control: every line needs confirmation before a schedule appears. Built solo in Python and Streamlit with a public repo, 137 automated tests, a live demo and honest evaluation logs. Large text by default, light/dark themes, click-to-use fictional demo Rx images, `দুটি AI পড়ছে…` loader, Bangla table with big ✓ and Bangla digits, compact DGDA cards, calendar links, .ics and prepared WhatsApp text. Reading aid only; not medical advice.
 
-**Word count of description:** 121 (limit 150).
+**Word count of description:** 143 (limit 150).
 
 **Live link:** https://rxbondhu.streamlit.app
 **Repo:** https://github.com/SJesan/RxBondhu

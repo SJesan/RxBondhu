@@ -338,19 +338,22 @@ is `Not found in DGDA snapshot — check the box`, never “not approved”.
 Contradictory CNN guesses are no longer printed as readings in the main view:
 it shows `CNN: not applicable to this name`, while the raw guess and confidence
 remain in **More info** with the note that the 78-class model was trained on
-clean word crops.
+clean word crops. An out-of-distribution CNN guess also **cannot escalate** an
+exact box-only dual agreement to RED — that line stays YELLOW with the
+box-check wording, because the two readers' agreement is the deciding signal
+and the CNN's raw guess is only disclosed, never used as a reading.
 
 Re-scored with the same cached Gemini responses (`--cache results/vlm_cache.jsonl`):
 
 | Configuration | GREEN lines | Unsafe-GREEN | Combined name accuracy | Catch rate | Over-flag |
 |---|---|---|---|---|---|
 | DGDA import + exact-dual override (§2e) | 19 | 0/19 (0.0000) | 24/47 (0.5106) | 1.0 | 3/24 (0.1250) |
-| **DAR-gated GREEN (shipped)** | **14** | **0/14 (0.0000)** | **24/47 (0.5106)** | **1.0** | 4/24 (0.1667) |
+| **DAR-gated GREEN + box-only YELLOW (shipped)** | **14** | **0/14 (0.0000)** | **24/47 (0.5106)** | **1.0** | **3/24 (0.1250)** |
 
 **Gate result:** unsafe-GREEN stayed at zero and catch rate stayed at 1.0. Five
-box-only GREEN lines became YELLOW; over-flag rose from 0.1250 to 0.1667, which
-is the intended conservative trade-off. Logs: `results/handwritten_boxcap_log.csv`
-and `results/handwritten_boxcap_summary.json`.
+box-only GREEN lines became YELLOW; over-flag stayed at 0.1250 because a
+disclosed CNN guess no longer turns a box-checked identity RED. Logs:
+`results/handwritten_boxcap_log.csv` and `results/handwritten_boxcap_summary.json`.
 
 Note: this cache run reports Reader 1 27/47 and Reader 2 32/47 (Gemini output
 varies slightly between runs); combined accuracy is unchanged at 24/47.
@@ -403,7 +406,7 @@ real line.
 ## 4. Reproduce locally
 
 ```bash
-.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 129 tests, no network
+.\venv\Scripts\python.exe -m unittest discover -s tests -q   # 137 tests, no network
 .\venv\Scripts\python.exe tools\verify_model.py
 .\venv\Scripts\python.exe tools\evaluate_localization.py --zip "<dataset.zip>"
 ```

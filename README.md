@@ -62,7 +62,7 @@ Flow: `photo → crop → segment.py → (vlm.py reader 1 + reader 2 + recognize
 | Unsafe-GREEN after exact-dual override | 0/19 = 0.0000 | Override kept unsafe-GREEN at zero. |
 | Unsafe-GREEN **after DAR-gate** | **0/14 = 0.0000** | Box-only identities capped at YELLOW (shipped). |
 | Catch rate | **1.0** (23/23) | Every wrong reading was flagged, never GREEN. |
-| Over-flag rate | 4/24 = 0.1667 | Correct names shown RED; conservative by design. |
+| Over-flag rate | 3/24 = 0.1250 | Correct names shown RED; conservative by design. |
 
 **Method note.** The real-photo test uses **10 handwritten prescriptions from one writer** (48 review lines), so it is a same-writer safety check, not a population accuracy claim. The 5-image dev / 5-image holdout split was fixed before scoring: candidate threshold 90 was picked on dev rows 1–5 and reported once on rows 6–10; `GREEN_SCORE = 95` is a safety policy, not tuned. Before/after runs reuse the same cached real Gemini responses, so only the lexicon/rule changed. Gemini output varies slightly between runs; these numbers come from the committed cache run. Full logs: [`docs/EVALUATION.md`](docs/EVALUATION.md) and `results/handwritten_boxcap_*`.
 
@@ -108,7 +108,7 @@ streamlit run app.py
 
 `GROQ_API_KEY` in `.env.example` is a placeholder for the rejected bake-off only — the app never calls Groq. Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the readers only.
 
-Tests (no network needed, 129 tests across 18 files):
+Tests (no network needed, 137 tests across 19 files):
 
 ```bash
 .\venv\Scripts\python.exe -m unittest discover -s tests -q

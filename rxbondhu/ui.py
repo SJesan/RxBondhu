@@ -673,9 +673,7 @@ def dgda_compact_html(record: dict | None) -> str:
         "<div style='background:var(--rx-surface-alt);border:1px solid var(--rx-border);"
         "border-radius:14px;padding:10px 12px;'>"
         "<div style='font-weight:800;color:var(--rx-text);margin-bottom:4px;'>DGDA তথ্য</div>"
-        f"{lines}"
-        "<div style='font-size:0.75rem;color:var(--rx-muted);margin-top:6px;'>"
-        "Identity from the checked export only — not dose advice.</div></div>"
+        f"{lines}</div>"
     )
 
 

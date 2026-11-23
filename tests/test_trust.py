@@ -50,6 +50,29 @@ class TestGreenRequiresDar(unittest.TestCase):
         self.assertIsNotNone(conflict_for("Fexo 60"))
         self.assertIsNone(conflict_for("Pantonix"))
 
+    def test_out_of_distribution_cnn_guess_does_not_escalate_box_only_to_red(self):
+        # The shipped demo 03 hit this live: CNN guessed "Az (0.62)" on a Napa
+        # word crop. That raw guess belongs in More info, not as a RED reason.
+        for name in ("Tab Napa 500", "Fexo 60"):
+            with self.subTest(name=name):
+                result = fusion.fuse(
+                    {"brand": "Az", "confidence": 0.62}, name, self.brands,
+                    second_vlm_text=name,
+                )
+                self.assertEqual(result["colour"], "YELLOW")
+                self.assertIn("box check", result["reason"].lower())
+                self.assertNotIn("cnn disagrees", result["reason"].lower())
+                self.assertEqual(result["cnn_display"], fusion.CNN_NOT_APPLICABLE)
+                self.assertTrue(result["cnn_conflicts"])
+
+    def test_confident_cnn_still_vetoes_a_fuzzy_dar_backed_brand(self):
+        # Near-exact dual DAR-backed matches keep the CNN veto (RED).
+        result = fusion.fuse(
+            {"brand": "Maxpro", "confidence": 0.91}, "Tab Pantoprazol 20", self.brands,
+            second_vlm_text="Pantoprazol 20",
+        )
+        self.assertEqual(result["colour"], "RED")
+
 
 class TestCnnDisplay(unittest.TestCase):
     def setUp(self):

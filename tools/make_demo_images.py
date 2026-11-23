@@ -16,13 +16,17 @@ OUT = ROOT / "assets" / "demo"
 FONT = r"C:\Windows\Fonts\comic.ttf"
 FONT_BOLD = r"C:\Windows\Fonts\comicbd.ttf"
 
+# Demo 01/02: clean all-GREEN (every brand has a DGDA DAR No).
+# Demo 03: YELLOW box-only identities to fix live on Screen 3.
+# Demo 04: deliberate RED via the neutral "Not sure?" flag on Screen 2.
+# Demo 05/06: off-list / mixed extra stress cases for judges.
 SETS = [
-    ["Tab Napa 500       1+0+1", "Cap Maxpro 20     1+0+0", "Tab Fexo 60         0+0+1"],
-    ["Tab Pantonix 20   1+0+0", "Tab Lysivin           1+1+1", "Tab Napa 500       0+0+1"],
-    ["Tab Amlocal 5       1+0+0", "Tab Ace 500          1+0+1", "Cap Maxpro 20     0+0+1"],
-    ["Syp Napa 100ml     5ml TDS", "Tab Fexo 60          0+0+1", "Tab Zinc 20         1+0+0"],
-    ["Tab Pantonix 20   1+0+0", "Tab Napa 650       1+1+1", "Tab Lysivin           1+0+0"],
-    ["Tab Amlocal Plus   1+0+0", "Cap Maxpro 20     1+0+0", "Tab Fexo 60          0+0+1"],
+    ["Tab Pantonix 20   1+0+0", "Cap Maxpro 20     1+0+0", "Tab Lysivin           1+1+1"],
+    ["Tab Seclo 20       1+0+0", "Tab Losar 50       0+0+1", "Tab Zyrtec 10       1+0+0"],
+    ["Tab Napa 500      1+0+1", "Cap Maxpro 20     1+0+0", "Tab Fexo 60         0+0+1"],
+    ["Tab Pantonix 20   1+0+0", "Cap Maxpro 20     0+0+1", "Tab Lysivin           1+0+0"],
+    ["Tab Amsocal Plus   1+0+0", "Tab Eltroxin         1+0+0", "Tab Panicel          0+0+1"],
+    ["Syp Napa 100ml     5ml TDS", "Tab Alafree 120    0+0+1", "Tab Zinc 20         1+0+0"],
 ]
 
 

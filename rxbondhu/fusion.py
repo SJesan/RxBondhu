@@ -123,6 +123,14 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         cnn_confident and names and cnn_row["brand"] not in names and not dual_exact
     )
 
+    # An exact dual agreement on a box/pharmacist-only row (no DGDA DAR No) is
+    # capped at YELLOW with honest box-check wording. An out-of-distribution
+    # CNN guess is disclosed in More info but never escalates this line to RED
+    # or promotes it to GREEN — the readers' agreement is the deciding signal.
+    box_only_exact = bool(
+        both_agree and min_match >= GREEN_SCORE and not both_dar_backed
+    )
+
     # A readable but unverified name must stay UNVERIFIED (editable), not RED.
     # Only a low-confidence CNN *and* no readable name at all is a RED case.
     readable = (first["display"] or second["display"]
@@ -145,6 +153,14 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         colour = "RED"
         reason = "The two photo readers disagree on this brand - confirm with the prescriber"
         chosen, generic = first["display"], None
+    elif box_only_exact:
+        # Exact box-only identity (Napa/Fexo/Ace): useful to display, but it
+        # must never sit under a GREEN badge with "DGDA not matched" nearby and
+        # must never be turned RED by an out-of-distribution CNN guess.
+        colour = "YELLOW"
+        reason = BOX_ONLY_REASON
+        chosen = first["display"] or second["display"]
+        generic = None
     elif cnn_contradiction:
         colour = "RED"
         reason = "Our CNN disagrees with both photo readers - confirm this line"
@@ -160,13 +176,6 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
             reason = "Two independent readers agree on a DGDA-registered brand (score >= 95)"
         chosen = next(iter(names))
         generic = first["generic"] or second["generic"]
-    elif both_agree and min_match >= GREEN_SCORE and not both_dar_backed:
-        # Exact box-only identity (Napa/Fexo/Ace): useful to display, but it
-        # must never sit under a GREEN badge with "DGDA not matched" nearby.
-        colour = "YELLOW"
-        reason = BOX_ONLY_REASON
-        chosen = first["display"] or second["display"]
-        generic = None
     elif both_agree:
         # 85-94.9 is a fuzzy-only identity: never GREEN, and no generic is
         # asserted until a human confirms the spelling on the paper.
