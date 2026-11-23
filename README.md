@@ -109,7 +109,7 @@ streamlit run app.py
 
 `GROQ_API_KEY` in `.env.example` is a placeholder for the rejected bake-off only — the app never calls Groq. Without a Gemini key the app runs CNN-only. Without the CNN file it runs with the readers only.
 
-Tests (no network needed; 145 tests across 20 files on this branch, 137 on `main`):
+Tests (no network needed; 148 tests across 20 files on this branch, 137 on `main`):
 
 ```bash
 .\venv\Scripts\python.exe -m unittest discover -s tests -q

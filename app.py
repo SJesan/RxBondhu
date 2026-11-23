@@ -175,10 +175,9 @@ def multi_photo_screen():
                 sources, st.session_state.read_cache,
                 skip_vlm=lambda: st.session_state.read_count >= 5,
                 progress=progress,
+                on_read=lambda: st.session_state.update(
+                    read_count=st.session_state.read_count + 1),
             )
-            for group in groups:
-                if group["vlm_used"]:
-                    st.session_state.read_count += 1
             st.session_state.multi_analyses = groups
             st.session_state.analysis = None
             st.session_state.confirmed = None
@@ -287,9 +286,8 @@ def screen_1():
                 files = files[:3]
             seen_multi = tuple((item.name, item.size) for item in files)
             st.session_state.sources = [
-                {"number": index, "image": Image.open(item).convert("RGB"),
-                 "name": item.name}
-                for index, item in enumerate(files, start=1)
+                {"image": Image.open(item).convert("RGB")}
+                for item in files
             ]
             if st.session_state.get("multi_seen") != seen_multi:
                 st.session_state.multi_seen = seen_multi
@@ -385,7 +383,7 @@ def _render_status(analysis):
         )
 
 
-def _render_item_card(item, form_key, persist, label=None):
+def _render_item_card(item, form_key, persist=None, label=None):
     """The exact single-image card, reused per prescription with a unique key."""
     with st.container(border=True):
         if label:
@@ -452,7 +450,8 @@ def _render_item_card(item, form_key, persist, label=None):
                 item["reason"] = (
                     str(item.get("reason") or "") + " User flagged this line as wrong."
                 ).strip()
-                persist()
+                if persist:
+                    persist()
                 st.rerun()
 
 
@@ -544,10 +543,10 @@ def _screen_2_multi():
         if group.get("analysis"):
             _render_status(group["analysis"])
         for line, item in enumerate(group["items"], start=1):
-            persist = lambda: st.session_state.update(
-                multi_analyses=st.session_state.multi_analyses)
+            # Items live in st.session_state.multi_analyses, so the in-place
+            # flag is already persisted; no self-assigning callback is needed.
             _render_item_card(
-                item, f"wrong_m{number}_{item['index']}", persist,
+                item, f"wrong_m{number}_{item['index']}",
                 label=f"Prescription {number} · line {line}",
             )
 

@@ -7,6 +7,7 @@ as its own group until the user confirms, and adds a non-blocking duplicate
 warning after the existing schedule check has run.
 """
 
+import copy
 import hashlib
 import io
 import json
@@ -47,12 +48,16 @@ def crop_cache_key(image, box) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def read_all(sources, cache, *, reader=None, skip_vlm=False, progress=None):
+def read_all(sources, cache, *, reader=None, skip_vlm=False, progress=None,
+             on_read=None):
     """Read prescriptions sequentially; one failure never stops the rest.
 
     Each source is ``{"image": full photo, "crop": cropped area, "box": box}``.
     ``cache`` is a mutable dict (session state) keyed by ``crop_cache_key``.
-    ``skip_vlm`` may be a callable so the quota guard is re-checked per image.
+    ``skip_vlm`` may be a callable so the quota guard is re-checked per image;
+    ``on_read`` is called before each VLM-backed attempt so the caller's shared
+    quota counter can trip mid-batch. The cache stores a pristine deep copy,
+    so a user flag on one review card can never leak into a future cache hit.
     Returns one group per prescription, never a merged list.
     """
     reader = reader or pipeline.analyse
@@ -61,17 +66,22 @@ def read_all(sources, cache, *, reader=None, skip_vlm=False, progress=None):
     for number, source in enumerate(sources, start=1):
         if progress:
             progress(number, total)
+        skipped = False
+        attempted = False
         try:
             key = crop_cache_key(source["image"], source.get("box"))
             cached = key in cache
-            skipped = skip_vlm() if callable(skip_vlm) else bool(skip_vlm)
             if cached:
-                analysis = dict(cache[key])
+                analysis = copy.deepcopy(cache[key])
             else:
+                skipped = skip_vlm() if callable(skip_vlm) else bool(skip_vlm)
+                attempted = not skipped
+                if attempted and on_read:
+                    on_read()  # count the attempt, even if the call fails later
                 analysis = reader(source["crop"], full_image=source["image"],
                                   skip_vlm=skipped)
                 analysis.pop("images", None)
-                cache[key] = analysis
+                cache[key] = copy.deepcopy(analysis)
             items = list(analysis.get("items") or [])
             groups.append({
                 "number": number,
@@ -91,7 +101,7 @@ def read_all(sources, cache, *, reader=None, skip_vlm=False, progress=None):
                           "অন্য ছবিগুলো পড়া হয়েছে / Other images were read."),
                 "items": [],
                 "from_cache": False,
-                "vlm_used": False,
+                "vlm_used": attempted,
             })
     return groups
 

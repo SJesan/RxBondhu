@@ -52,11 +52,48 @@ class TestSeparateGroups(unittest.TestCase):
         self.assertEqual(progress, [(1, 3), (2, 3), (3, 3)])  # strictly sequential
         self.assertEqual([len(g["items"]) for g in groups], [1, 1, 1])
         for group, result in zip(groups, results):
-            self.assertIs(group["analysis"], result)
-            self.assertIs(group["items"][0], result["items"][0])
+            self.assertEqual(group["analysis"], result)
+            self.assertEqual(group["items"][0], result["items"][0])
             self.assertNotIn("images", result)  # crop images never cached
         self.assertIsNone(groups[0]["error"])
         self.assertEqual(len(calls), 3)
+
+
+class TestQuotaGuard(unittest.TestCase):
+    def test_guard_can_trip_between_images(self):
+        quota = {"reads": 0}
+        seen = []
+
+        def reader(crop, full_image=None, skip_vlm=False):
+            seen.append(skip_vlm)
+            return analysis("Pantonix")
+
+        groups = multi.read_all(
+            [source("white"), source("red"), source("blue")], {},
+            reader=reader,
+            skip_vlm=lambda: quota["reads"] >= 1,
+            on_read=lambda: quota.update(reads=quota["reads"] + 1),
+        )
+
+        self.assertEqual(seen, [False, True, True])
+        self.assertEqual(quota["reads"], 1)
+        self.assertEqual([g["vlm_used"] for g in groups], [True, False, False])
+        self.assertTrue(all(len(g["items"]) == 1 for g in groups))
+
+    def test_failed_vlm_attempt_still_counts_toward_quota(self):
+        quota = {"reads": 0}
+
+        def reader(crop, full_image=None, skip_vlm=False):
+            raise RuntimeError("429 RESOURCE_EXHAUSTED: quota value 0")
+
+        group = multi.read_all(
+            [source("white")], {}, reader=reader,
+            on_read=lambda: quota.update(reads=quota["reads"] + 1),
+        )[0]
+
+        self.assertEqual(quota["reads"], 1)
+        self.assertTrue(group["vlm_used"])
+        self.assertIn("Prescription 1", group["error"])
 
 
 class TestCrossPrescriptionDuplicate(unittest.TestCase):
@@ -135,6 +172,28 @@ class TestCropCache(unittest.TestCase):
         # A different crop box is a different cache entry.
         multi.read_all([source("white", (2, 2, 90, 40))], cache, reader=reader)
         self.assertEqual(len(calls), 2)
+
+    def test_manual_flag_does_not_leak_into_future_cache_hits(self):
+        one = source("white", (1, 1, 90, 40))
+        cache = {}
+        calls = []
+
+        def reader(crop, full_image=None, skip_vlm=False):
+            calls.append(1)
+            return analysis("Pantonix")
+
+        first = multi.read_all([one], cache, reader=reader)[0]
+        key = multi.crop_cache_key(one["image"], one["box"])
+        first["items"][0]["colour"] = "RED"
+        first["items"][0]["reason"] = "User flagged this line as wrong."
+
+        self.assertEqual(cache[key]["items"][0]["colour"], "GREEN")
+        self.assertNotIn("reason", cache[key]["items"][0])
+
+        second = multi.read_all([one], cache, reader=reader)[0]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(second["items"][0]["colour"], "GREEN")
+        self.assertNotIn("reason", second["items"][0])
 
     def test_key_depends_on_pixels_and_box(self):
         base = multi.crop_cache_key(source("white")["image"], (1, 2, 3, 4))
