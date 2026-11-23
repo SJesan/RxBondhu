@@ -16,7 +16,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from rxbondhu import bangla, camera, pipeline, recognizer, reminders, sharing, tts, ui, vlm  # noqa: E402
+from rxbondhu import bangla, camera, multi, pipeline, recognizer, reminders, sharing, tts, ui, vlm  # noqa: E402
 from rxbondhu.lexicon import load_brands, lookup_exact, suggest_brands  # noqa: E402
 from rxbondhu.state_guard import (analysis_is_current, claim_read,  # noqa: E402
                                   confirmed_rows_are_current, release_read)
@@ -34,7 +34,12 @@ def init_state():
     defaults = {"page": 1, "source": None, "crop": None, "analysis": None,
                 "confirmed": None, "schedule": None, "audio": None,
                 "read_count": 0, "font_scale": "Large", "theme": "Light",
-                "reading_lock": False}
+                "reading_lock": False,
+                # Multi-prescription mode. All defaults are inert until the
+                # dedicated 2-3 image uploader is used.
+                "multi_mode": False, "sources": [], "multi_analyses": [],
+                "read_cache": {}, "multi_upload_seq": 0,
+                "single_seen": None, "multi_seen": None}
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -46,6 +51,9 @@ def reset_reading():
     st.session_state.confirmed = None
     st.session_state.schedule = None
     st.session_state.audio = None
+    st.session_state.multi_mode = False
+    st.session_state.sources = []
+    st.session_state.multi_analyses = []
     st.session_state.page = 1
     st.rerun()
 
@@ -70,6 +78,9 @@ def apply_query_actions():
             st.session_state.confirmed = None
             st.session_state.schedule = None
             st.session_state.audio = None
+            st.session_state.multi_mode = False
+            st.session_state.sources = []
+            st.session_state.multi_upload_seq += 1  # clears the multi uploader
             st.session_state.page = 1
             st.session_state.demo_loaded = path.name
         if "demo" in params:
@@ -101,6 +112,76 @@ def crop_ui(image: Image.Image, coverage: int = 92, key: str = "crop"):
     except Exception as exc:
         st.info(f"Cropper unavailable ({exc}) — using the full image as the crop.")
         return image, None
+
+
+def multi_photo_screen():
+    """Screen 1 for 1-3 prescriptions: own crop per image, sequential read.
+
+    Every image stays a separate group until the user confirms on screen 3.
+    The read button is locked for the whole loop and identical crops are served
+    from the session cache, so no double-click or repeat upload spends quota.
+    """
+    st.subheader("প্রেসক্রিপশন ছবি / Prescription images")
+    st.caption("বক্সে শুধু ওষুধের লাইন রাখুন — নাম, স্বাক্ষর বা তারিখ নয়।")
+    sample = Path(__file__).resolve().parent / "assets" / "demo" / "crop_example.png"
+    if sample.is_file():
+        st.image(sample, width=150, caption="Cropping example")
+    st.caption("ছবি সংরক্ষণ করা হয় না — শুধু এই সেশনে ব্যবহৃত হয়।")
+    with st.expander("Advanced — margin for each image", expanded=False):
+        coverage = st.slider(
+            "Medicine-area coverage (%)", 70, 98, 92, 2, key="coverage_multi",
+            help="Default 92% means a 4% margin on each side of the photo.",
+        )
+
+    sources = []
+    for index, item in enumerate(st.session_state.sources, start=1):
+        st.markdown(f"**প্রেসক্রিপশন {bangla.digits(index)} / Prescription {index}**")
+        crop, box = crop_ui(item["image"], coverage=coverage,
+                            key=f"multi_{index}")
+        item["crop"], item["box"] = crop, box
+        sources.append(item)
+    st.session_state.sources = sources
+    if any(item["crop"] is None for item in sources):
+        st.warning("Crop is not ready yet — drag a box around the medicine lines, then try again.")
+        return
+    st.caption("Green box = medicine area sent to the AI")
+    if st.session_state.read_count >= 5:
+        st.caption("Session reading limit reached — Gemini is paused, our CNN still works.")
+
+    if st.button("🔍 Read prescriptions one by one →", type="primary",
+                 disabled=st.session_state.reading_lock):
+        if not claim_read(st.session_state):
+            st.info("একটি পড়া চলছে — শেষ হলে আবার চেষ্টা করুন।")
+            return
+        loader = st.empty()
+        try:
+            def progress(number, total):
+                loader.markdown(
+                    f"**প্রেসক্রিপশন {bangla.digits(number)}/{bangla.digits(total)} "
+                    f"পড়ছে… / Prescription {number} of {total}…**"
+                )
+
+            groups = multi.read_all(
+                sources, st.session_state.read_cache,
+                skip_vlm=lambda: st.session_state.read_count >= 5,
+                progress=progress,
+            )
+            for group in groups:
+                if group["vlm_used"]:
+                    st.session_state.read_count += 1
+            st.session_state.multi_analyses = groups
+            st.session_state.analysis = None
+            st.session_state.confirmed = None
+            st.session_state.schedule = None
+            st.session_state.audio = None
+            st.session_state.page = 2
+            loader.empty()
+            st.rerun()
+        except Exception as exc:
+            loader.empty()
+            st.error(f"Reading failed: {vlm.friendly_error(exc)}")
+        finally:
+            release_read(st.session_state)
 
 
 def colour_badge(colour: str) -> str:
@@ -163,12 +244,55 @@ def screen_1():
         uploaded = st.file_uploader("Prescription image", type=["jpg", "jpeg", "png", "webp"])
         if uploaded:
             st.session_state.source = Image.open(uploaded).convert("RGB")
+            seen = (uploaded.name, uploaded.size)
+            if st.session_state.single_seen != seen:
+                st.session_state.single_seen = seen
+                st.session_state.multi_mode = False
+                st.session_state.sources = []
+                st.session_state.multi_upload_seq += 1  # clears the multi uploader
     with tab_camera:
         st.caption("Use the **rear camera** for prescriptions.")
         st.markdown("**Camera not working? Use the Upload photo tab** — it works on every device.")
         photo = camera.capture()
         if photo is not None:
             st.session_state.source = photo
+            st.session_state.multi_mode = False
+            st.session_state.sources = []
+            st.session_state.multi_upload_seq += 1  # camera stays single-image
+
+    # Separate 2-3 image uploader. The single uploader, camera and demo strip
+    # above are unchanged; multi mode only exists while this has files.
+    with st.expander("📚 Multiple prescriptions (2–3 photos)", expanded=False):
+        st.caption("১–৩ ছবি আপলোড করুন — প্রতিটির নিজস্ব ক্রপ বক্স থাকবে। "
+                   "Upload 1–3 photos; each keeps its own crop box and is read one at a time.")
+        files = st.file_uploader(
+            "Prescription images (up to 3)", type=["jpg", "jpeg", "png", "webp"],
+            accept_multiple_files=True,
+            key=f"multi_files_{st.session_state.multi_upload_seq}",
+        )
+        if files:
+            if len(files) > 3:
+                st.warning("সর্বোচ্চ ৩টি ছবি — প্রথম ৩টি ব্যবহার করা হয়েছে / "
+                           "Maximum 3 images — only the first 3 were used.")
+                files = files[:3]
+            seen_multi = tuple((item.name, item.size) for item in files)
+            st.session_state.sources = [
+                {"number": index, "image": Image.open(item).convert("RGB"),
+                 "name": item.name}
+                for index, item in enumerate(files, start=1)
+            ]
+            if st.session_state.get("multi_seen") != seen_multi:
+                st.session_state.multi_seen = seen_multi
+                st.session_state.single_seen = None
+            st.session_state.multi_mode = True
+            st.session_state.source = None
+        else:
+            st.session_state.multi_mode = False
+            st.session_state.sources = []
+
+    if st.session_state.multi_mode:
+        multi_photo_screen()
+        return
 
     if st.session_state.source is None:
         st.info("Choose a photo above, or use one of the demo images as a visual reference.")
