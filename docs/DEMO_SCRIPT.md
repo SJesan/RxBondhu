@@ -13,7 +13,7 @@ failure. Every screen starts with the same Bangla disclaimer, once, at the top.
    returns 200 after Streamlit's standard 303 → cookie → 200 handshake (a no-cookie checker
    loops on 303 for *all* public Streamlit apps).
 3. **Backup:** this same ≤3-min run as an **unlisted MP4 recorded by Rakin** (still pending —
-   must be ready before check-in). Offline screenshots live in `docs/screenshots/` as a
+   must be ready before check-in). Three offline screenshots in `docs/screenshots/` are a
    last-resort visual fallback (see "Offline backup" below).
 
 ## The six demo images (`assets/demo/`, fictional, click-to-use)
@@ -142,10 +142,10 @@ before it becomes a schedule.**
 
 ## Offline backup
 
-`docs/screenshots/` holds PNGs of the three screens (light theme). Capture them from the local
-app after the final push with any screen recorder/screenshot tool; keep filenames
-`screen1_photo.png`, `screen2_reading.png`, `screen3_schedule.png`. They are a visual fallback
-only — the live app and Rakin's video are the primary evidence.
+`docs/screenshots/` holds PNGs of the three screens (light theme, Large text):
+`screen1_photo.png`, `screen2_reading.png` (YELLOW box-check demo), `screen3_schedule.png`
+(Bangla-first table). They are a visual fallback only — the live app and Rakin's video are the
+primary evidence. Re-capture after any further UI change.
 
 Record with phone + OBS or any screen recorder. Keep total under 3:00. Export MP4, upload to
 YouTube (unlisted) or Loom, and paste the link in the submission.

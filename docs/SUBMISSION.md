@@ -36,6 +36,7 @@
 - [x] CI green again after the final DGDA push (commit `b24443a`, CI #31)
 - [x] Live Streamlit app confirmed public (Cloud: “public and searchable”; `/_stcore/health` = 200 with the standard auth-cookie handshake, 23 Nov)
 - [x] DGDA export downloaded once, sha256 + date recorded, filtered snapshot committed, no runtime fetch
+- [x] Offline screenshots captured for all three screens (`docs/screenshots/`, 23 Nov)
 - [ ] Backup video recorded by **Rakin** (≤3 min, unlisted — still pending 23 Nov)
 - [ ] Rear-camera tab tested on a real phone (not yet tested; upload fallback remains)
 - [ ] Fresh Gemini key in Streamlit Secrets (owner chose to keep the existing key — accepted risk)
