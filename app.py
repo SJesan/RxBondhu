@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rxbondhu import bangla, camera, pipeline, recognizer, reminders, sharing, tts, ui, vlm  # noqa: E402
 from rxbondhu.lexicon import load_brands, lookup_exact, suggest_brands  # noqa: E402
-from rxbondhu.state_guard import analysis_is_current, confirmed_rows_are_current  # noqa: E402
+from rxbondhu.state_guard import (analysis_is_current, claim_read,  # noqa: E402
+                                  confirmed_rows_are_current, release_read)
 
 st.set_page_config(page_title="RxBondhu | রক্সবন্ধু", page_icon="💊", layout="wide")
 
@@ -32,7 +33,8 @@ DEMO_DISCLAIMER = f'<div class="rx-disclaimer"><b>{DISCLAIMER_TEXT}</b></div>'
 def init_state():
     defaults = {"page": 1, "source": None, "crop": None, "analysis": None,
                 "confirmed": None, "schedule": None, "audio": None,
-                "read_count": 0, "font_scale": "Normal", "theme": "Light"}
+                "read_count": 0, "font_scale": "Large", "theme": "Light",
+                "reading_lock": False}
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -162,8 +164,8 @@ def screen_1():
         if uploaded:
             st.session_state.source = Image.open(uploaded).convert("RGB")
     with tab_camera:
-        st.caption("Rear camera preferred for prescriptions. Camera access is optional — "
-                   "the upload tab works on every device.")
+        st.caption("Use the **rear camera** for prescriptions.")
+        st.markdown("**Camera not working? Use the Upload photo tab** — it works on every device.")
         photo = camera.capture()
         if photo is not None:
             st.session_state.source = photo
@@ -173,10 +175,16 @@ def screen_1():
         return
 
     st.subheader("Select the medicine area")
-    coverage = st.slider(
-        "Medicine-area coverage (%) — start wide, then trim", 70, 98, 92, 2,
-        key="coverage", help="92% means a 4% margin on each side of the photo.",
-    )
+    st.caption("বক্সে শুধু ওষুধের লাইন রাখুন — নাম, স্বাক্ষর বা তারিখ নয়।")
+    sample = demo_dir / "crop_example.png"
+    if sample.is_file():
+        st.image(sample, width=150, caption="Cropping example")
+    st.caption("ছবি সংরক্ষণ করা হয় না — শুধু এই সেশনে ব্যবহৃত হয়।")
+    with st.expander("Advanced — crop margin", expanded=False):
+        coverage = st.slider(
+            "Medicine-area coverage (%)", 70, 98, 92, 2, key="coverage",
+            help="Default 92% means a 4% margin on each side of the photo.",
+        )
     st.session_state.crop, crop_box = crop_ui(
         st.session_state.source, coverage=coverage)
     if st.session_state.crop is None:
@@ -187,22 +195,29 @@ def screen_1():
     st.caption("Green box = medicine area sent to the AI")
     if st.session_state.read_count >= 5:
         st.caption("Session reading limit reached — Gemini is paused, our CNN still works.")
-    if st.button("🔍 Read with both AI models →", type="primary"):
-        skip_vlm = st.session_state.read_count >= 5
-        loader = st.empty()
-        loader.markdown(ui.loading_html(st.session_state.theme), unsafe_allow_html=True)
-        try:
-            st.session_state.analysis = pipeline.analyse(
-                st.session_state.crop, full_image=st.session_state.source,
-                skip_vlm=skip_vlm)
-            st.session_state.analysis.pop("images", None)
-            st.session_state.read_count += 1
-            st.session_state.page = 2
-            loader.empty()
-            st.rerun()
-        except Exception as exc:
-            loader.empty()
-            st.error(f"Reading failed: {exc}")
+    if st.button("🔍 Read with both AI models →", type="primary",
+                 disabled=st.session_state.reading_lock):
+        if not claim_read(st.session_state):
+            st.info("একটি পড়া চলছে — শেষ হলে আবার চেষ্টা করুন।")
+        else:
+            skip_vlm = st.session_state.read_count >= 5
+            loader = st.empty()
+            loader.markdown(ui.loading_html(st.session_state.theme),
+                            unsafe_allow_html=True)
+            try:
+                st.session_state.analysis = pipeline.analyse(
+                    st.session_state.crop, full_image=st.session_state.source,
+                    skip_vlm=skip_vlm)
+                st.session_state.analysis.pop("images", None)
+                st.session_state.read_count += 1
+                st.session_state.page = 2
+                loader.empty()
+                st.rerun()
+            except Exception as exc:
+                loader.empty()
+                st.error(f"Reading failed: {vlm.friendly_error(exc)}")
+            finally:
+                release_read(st.session_state)
 
 
 def screen_2():
@@ -232,12 +247,27 @@ def screen_2():
         f"<span class='rx-chip'>{escape(str(analysis.get('vlm2_model') or 'Reader 2 offline'))}</span>"
     )
     st.markdown(status, unsafe_allow_html=True)
+    r1_name = str(analysis.get("vlm_model") or "Reader 1")
+    r2_name = str(analysis.get("vlm2_model") or "Reader 2")
     if vlm_error:
-        st.warning(f"Reader 1 unavailable: {vlm_error} — continuing with Reader 2 and CNN.")
+        st.warning(
+            f"{r1_name} (Reader 1) unavailable: {vlm.friendly_error(vlm_error, r1_name)} "
+            "— continuing with Reader 2 and CNN. No reading is invented; "
+            "single-reader lines are capped at YELLOW."
+        )
     if second_error:
-        st.warning(f"Reader 2 unavailable: {second_error} — continuing with Reader 1 and CNN.")
+        st.warning(
+            f"{r2_name} (Reader 2) unavailable: {vlm.friendly_error(second_error, r2_name)} "
+            "— continuing with Reader 1 and CNN. No reading is invented; "
+            "single-reader lines are capped at YELLOW."
+        )
     if not analysis["items"]:
-        st.error("No medicine lines detected. Try a tighter, better-lit crop.")
+        st.info("কিছু পাওয়া যায়নি — ওষুধের লাইনের চারপাশে টাইট ক্রপ করে আবার চেষ্টা করুন। "
+                "Nothing found — try a tighter crop around the medicine lines.")
+        if st.button("← Back to photo"):
+            st.session_state.page = 1
+            st.rerun()
+        return
     for item in analysis["items"]:
         with st.container(border=True):
             right, card = st.columns([3, 2])
@@ -297,7 +327,7 @@ def screen_2():
             # A real form button keeps the current reading in session state;
             # its dedicated test id also lets CSS give it a danger style.
             with right.form(f"wrong_{item['index']}"):
-                if st.form_submit_button("🚩 Looks wrong — mark RED"):
+                if st.form_submit_button("Not sure?"):
                     item["colour"] = "RED"
                     item["reason"] = (
                         str(item.get("reason") or "") + " User flagged this line as wrong."
@@ -407,7 +437,10 @@ def screen_3():
     schedule = st.session_state.schedule
     if schedule:
         st.subheader("আপনার সময়সূচি / Your schedule")
-        st.dataframe(bangla.schedule_rows(schedule["medicines"]), width='stretch')
+        st.markdown(
+            bangla.schedule_table_html(schedule["medicines"]),
+            unsafe_allow_html=True,
+        )
         if schedule["warnings"]:
             for warning in schedule["warnings"]:
                 st.warning(warning)
@@ -419,7 +452,7 @@ def screen_3():
             f"{escape(summary)}</div>",
             unsafe_allow_html=True,
         )
-        if st.button("🔊 Bangla audio"):
+        if st.button("🔊 শুনুন Bangla audio"):
             with st.spinner("Generating speech (first run downloads the TTS model)…"):
                 result = tts.speak_bangla(summary)
             if result["path"]:
@@ -453,12 +486,8 @@ def screen_3():
                    "Confirm all times with the prescriber.")
 
         st.subheader("Reminders")
-        email_col, call_col, whatsapp_col = st.columns(3)
-        email_col.button("📧 Email reminder — Coming soon", disabled=True)
-        call_col.button("📞 Call reminder — Coming soon", disabled=True)
-        whatsapp_col.link_button("📱 WhatsApp reminder", sharing.whatsapp_link(schedule))
-        st.caption("WhatsApp opens a prepared Bangla message — the app never sends it for you. "
-                   "Email and call reminders need a verified sender/number and user consent.")
+        st.link_button("📱 WhatsApp reminder", sharing.whatsapp_link(schedule))
+        st.caption("WhatsApp opens a prepared Bangla message — the app never sends it for you.")
 
         st.markdown("**Per-medicine audio**")
         for index, med in enumerate(schedule["medicines"]):
@@ -521,12 +550,12 @@ def main():
     theme = ui.theme_name(st.session_state.theme)
     ui.inject_css(theme)
     scale = st.session_state.get("font_scale", "Normal")
-    factor = {"Normal": 1.0, "Large": 1.15, "Extra large": 1.3}.get(str(scale), 1.0)
+    factor = {"Normal": 1.0, "Large": 1.1, "Extra large": 1.3}.get(str(scale), 1.1)
     st.markdown(
-        f"<style>.stMarkdown p,.stMarkdown li,.stCaption{{font-size:calc(0.95rem * {factor})!important;}}</style>",
+        f"<style>:root{{--rx-body:calc(18px * {factor})!important;}}</style>",
         unsafe_allow_html=True,
     )
-    ui.hero(theme)
+    ui.hero(theme, compact=st.session_state.page in (2, 3))
     sidebar()
     if st.session_state.page == 1:
         screen_1()

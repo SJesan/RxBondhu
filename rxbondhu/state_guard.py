@@ -38,3 +38,16 @@ def analysis_is_current(analysis):
 def confirmed_rows_are_current(rows):
     """True only for review rows built by the current screen 2."""
     return isinstance(rows, list) and all(_has_keys(row, CONFIRMED_KEYS) for row in rows)
+
+
+def claim_read(state) -> bool:
+    """One Read click per session at a time; blocks quota double-spend."""
+    if state.get("reading_lock", False):
+        return False
+    state["reading_lock"] = True
+    return True
+
+
+def release_read(state) -> None:
+    """Always called in a finally block after an attempt."""
+    state["reading_lock"] = False

@@ -19,7 +19,7 @@ THEMES = {
         "surface": "#FFFFFF",
         "surface_alt": "#F1F8F3",
         "text": "#153526",
-        "muted": "#4F6B5B",
+        "muted": "#355445",
         "border": "#D5E7DA",
         "accent": "#0E6B3C",
         "accent_hover": "#0B5A32",
@@ -105,6 +105,7 @@ def palette(theme: str | None = None) -> dict:
 CLEAN_CSS_TEMPLATE = Template("""
 <style>
 :root {
+  --rx-body: 18px;
   --rx-bg: $bg;
   --rx-surface: $surface;
   --rx-surface-alt: $surface_alt;
@@ -140,6 +141,7 @@ html, body, .stApp {
 .block-container { padding-top: 1.1rem; max-width: 1180px; }
 .stMarkdown, .stCaption, .stText, .stSubheader, .stTitle, .stMetric, .stCode {
   color: var(--rx-text);
+  font-size: var(--rx-body);
 }
 .stCaption, [data-testid="stCaptionContainer"] { color: var(--rx-muted) !important; }
 hr { border-color: var(--rx-border) !important; }
@@ -147,9 +149,9 @@ hr { border-color: var(--rx-border) !important; }
 div[data-testid="stContainer"] {
   background: var(--rx-surface);
   border: 1px solid var(--rx-border);
-  border-radius: 16px;
-  padding: 9px 13px;
-  margin-bottom: -4px;
+  border-radius: 18px;
+  padding: 18px 20px;
+  margin-bottom: 12px;
   box-shadow: var(--rx-shadow);
   transition: transform 0.25s cubic-bezier(.2,.7,.3,1), box-shadow 0.25s;
   transform-style: preserve-3d;
@@ -209,7 +211,9 @@ div[data-testid="stLinkButton"] > a {
   background: linear-gradient(135deg, var(--rx-accent), var(--rx-accent-hover)) !important;
   color: var(--rx-on-accent) !important;
   font-weight: 800 !important;
-  padding: 0.5rem 1.1rem !important;
+  font-size: 1rem !important;
+  min-height: 48px !important;
+  padding: 0.65rem 1.2rem !important;
   box-shadow: var(--rx-button-shadow);
   text-decoration: none !important;
   transition: transform 0.2s, box-shadow 0.2s;
@@ -241,10 +245,10 @@ div.stButton > button:disabled {
 [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div { margin-bottom: 0.1rem; }
 [data-testid="stSidebar"] div.stButton > button { padding: 0.32rem 0.8rem !important; }
 [data-testid="stSidebar"] [data-testid="stExpander"] { margin-top: 0.2rem; }
-.rx-step-nav { display: flex; gap: 5px; margin: 6px 0 4px; }
+.rx-step-nav { display: flex; gap: 8px; margin: 10px 0 8px; }
 .rx-step-nav span {
-  padding: 3px 8px; border-radius: 999px; border: 1px solid var(--rx-border);
-  font-size: 0.72rem; color: var(--rx-muted); white-space: nowrap;
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--rx-border);
+  font-size: 1rem; font-weight: 700; color: var(--rx-muted); white-space: nowrap;
 }
 .rx-step-nav span.on {
   background: var(--rx-accent-soft); color: var(--rx-accent); font-weight: 800;
@@ -259,13 +263,13 @@ div.stButton > button:disabled {
   letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 0.3rem;
 }
 .rx-step {
-  display:inline-block; padding:0.32rem 0.8rem; border-radius:999px;
+  display:inline-block; padding:0.5rem 1rem; border-radius:999px;
   background:var(--rx-accent-soft); color:var(--rx-accent); font-weight:800;
-  font-size:0.82rem; border:1px solid var(--rx-border); margin-bottom:0.5rem;
+  font-size:1rem; border:1px solid var(--rx-border); margin-bottom:0.7rem;
 }
 .rx-badge {
-  display:inline-block; padding:0.25rem 0.7rem; border-radius:999px;
-  font-weight:800; font-size:0.8rem; border:1px solid;
+  display:inline-block; padding:0.35rem 0.85rem; border-radius:999px;
+  font-weight:800; font-size:0.95rem; border:1px solid;
 }
 .rx-green { background:var(--rx-green-bg); color:var(--rx-green-fg); border-color:var(--rx-green-bd); }
 .rx-yellow { background:var(--rx-yellow-bg); color:var(--rx-yellow-fg); border-color:var(--rx-yellow-bd); }
@@ -274,8 +278,8 @@ div.stButton > button:disabled {
 .rx-chip {
   display:inline-block; padding:0.22rem 0.6rem; border-radius:999px;
   background:var(--rx-accent-soft); color:var(--rx-text);
-  border:1px solid var(--rx-border); font-size:0.75rem; font-weight:700;
-  margin:0.15rem 0.25rem 0.15rem 0;
+  border:1px solid var(--rx-border); font-size:0.85rem; font-weight:700;
+  margin:0.2rem 0.3rem 0.2rem 0;
 }
 .rx-chip-good { color:var(--rx-green-fg); border-color:var(--rx-green-bd); }
 .rx-chip-warn { color:var(--rx-yellow-fg); border-color:var(--rx-yellow-bd); }
@@ -294,7 +298,7 @@ div.stButton > button:disabled {
 .rx-demo-link:hover { border-color:var(--rx-accent); transform:translateY(-2px); }
 .rx-demo-link img { width:100%; display:block; border-radius:9px; }
 .rx-demo-link span {
-  display:block; text-align:center; font-size:0.7rem; color:var(--rx-muted); margin-top:2px;
+  display:block; text-align:center; font-size:0.85rem; color:var(--rx-text); margin-top:4px;
 }
 /* Danger action stays visually separate from the green primary buttons. */
 div[data-testid="stForm"] {
@@ -303,19 +307,34 @@ div[data-testid="stForm"] {
 }
 div[data-testid="stForm"] button {
   border-radius:999px !important;
-  border:1.5px solid var(--rx-red-fg) !important;
-  background:var(--rx-red-bg) !important;
-  color:var(--rx-red-fg) !important;
-  font-size:0.78rem !important; font-weight:800 !important;
-  padding:0.34rem 0.78rem !important; box-shadow:none !important;
-  transition:transform 0.18s;
+  border:1.5px solid var(--rx-muted) !important;
+  background:var(--rx-surface-alt) !important;
+  color:var(--rx-text) !important;
+  font-size:0.9rem !important; font-weight:700 !important;
+  min-height:48px !important; padding:0.5rem 1rem !important;
+  box-shadow:none !important; transition:transform 0.18s;
 }
 div[data-testid="stForm"] button:hover {
   transform:translateY(-1px);
-  background:var(--rx-red-fg) !important; color:var(--rx-red-bg) !important;
+  background:var(--rx-accent-soft) !important;
+  color:var(--rx-text) !important;
 }
 .rx-review-badge { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.rx-review-meta { font-size:0.78rem; color:var(--rx-muted); margin-top:4px; }
+.rx-review-meta { font-size:0.9rem; color:var(--rx-text); margin-top:6px; }
+.rx-status-line { font-size:1.05rem; font-weight:800; color:var(--rx-text); margin-top:6px; }
+.rx-reason { font-size:0.95rem; color:var(--rx-text); margin-top:4px; }
+.rx-readings { font-size:0.95rem; color:var(--rx-text); line-height:1.55; margin-top:8px; }
+.rx-readings b { color:var(--rx-text); }
+.rx-tick { color:var(--rx-accent); font-weight:900; font-size:1.45rem; }
+.rx-schedule-table { width:100%; border-collapse:separate; border-spacing:0;
+  border:1px solid var(--rx-border); border-radius:16px; overflow:hidden; }
+.rx-schedule-table th { background:var(--rx-accent-soft); color:var(--rx-text);
+  font-size:1.05rem; padding:12px 14px; text-align:left; }
+.rx-schedule-table th small { display:block; font-size:0.8rem; color:var(--rx-text); font-weight:600; }
+.rx-schedule-table td { background:var(--rx-surface); color:var(--rx-text);
+  font-size:1.1rem; padding:14px; border-top:1px solid var(--rx-border); }
+.rx-schedule-table td.rx-count { font-size:1.35rem; font-weight:800; }
+.rx-missing { color:var(--rx-text); font-size:1rem; font-weight:700; }
 </style>
 """)
 
@@ -341,7 +360,7 @@ HERO_TEMPLATE = Template("""
     </p>
     <div style="margin-top:10px;">
       <span class="rx-chip">2 Gemini readers</span>
-      <span class="rx-chip">own CNN · 95.90%</span>
+      <span class="rx-chip">CNN 95.90% = word-crop test accuracy</span>
       <span class="rx-chip">DGDA snapshot 23 Nov</span>
     </div>
   </div>
@@ -414,16 +433,40 @@ HERO_TEMPLATE = Template("""
 """)
 
 
-def hero(theme: str | None = None) -> None:
-    """Compact 3D hero card shown above the step content."""
-    st.iframe(HERO_TEMPLATE.substitute(palette(theme)), height=196)
+COMPACT_HERO_TEMPLATE = Template("""
+<div class="rx-quick-hero">
+  <b>RxBondhu রক্সবন্ধু</b>
+  <span>দুই AI পড়া → DGDA-checked identity → Bangla schedule + audio</span>
+</div>
+<style>
+.rx-quick-hero {
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:12px 16px; border-radius:16px; margin-bottom:12px;
+  background:linear-gradient(135deg,$hero_from 0%,$hero_to 100%);
+  border:1px solid $border; color:$hero_text;
+  font-size:1.05rem; line-height:1.35;
+}
+.rx-quick-hero b { font-size:1.25rem; color:$hero_text; white-space:nowrap; }
+.rx-quick-hero span { color:$hero_muted; }
+@media(max-width:760px){.rx-quick-hero{gap:6px;}}
+</style>
+""")
+
+
+def hero(theme: str | None = None, compact: bool = False) -> None:
+    """Full 3D hero on screen 1; one-line hero on screens 2 and 3."""
+    if compact:
+        st.markdown(COMPACT_HERO_TEMPLATE.substitute(palette(theme)),
+                    unsafe_allow_html=True)
+    else:
+        st.iframe(HERO_TEMPLATE.substitute(palette(theme)), height=196)
 
 
 LOADING_TEMPLATE = Template("""
 <div class="rx-loading">
   <div class="rx-capsule"><span></span><span></span></div>
-  <div class="rx-loading-title">Two AI readers are reading your prescription…</div>
-  <div class="rx-loading-sub">Finding medicine lines · running our CNN · checking DGDA</div>
+  <div class="rx-loading-title">দুটি AI পড়ছে…</div>
+  <div class="rx-loading-sub">ওষুধের লাইন খুঁজছে · CNN চলছে · DGDA মিলাচ্ছে</div>
 </div>
 <style>
 .rx-loading {
@@ -478,16 +521,13 @@ def sidebar_header_html(info: dict | None, key_ok: bool) -> str:
     """Modern, compact sidebar identity + status chips."""
     info = info or {}
     cnn_class = "rx-chip-good" if info.get("available") else "rx-chip-warn"
-    cnn_text = "CNN 95.90%" if info.get("available") else "CNN offline"
-    key_class = "rx-chip-good" if key_ok else "rx-chip-warn"
-    key_text = "Reader keys ready" if key_ok else "Reader keys missing"
+    cnn_text = ("CNN 95.90% = word-crop test accuracy"
+                if info.get("available") else "CNN offline")
     return (
         '<p class="rx-sidebar-title">💊 RxBondhu</p>'
         '<p class="rx-sidebar-sub">Handwritten prescription → Bangla schedule</p>'
         f'<span class="rx-chip {cnn_class}">{escape(cnn_text)}</span>'
-        f'<span class="rx-chip {key_class}">{escape(key_text)}</span>'
-        '<span class="rx-chip">DGDA 23 Nov</span>'
-        '<span class="rx-chip rx-chip-warn">Groq not shipped</span>'
+        '<span class="rx-chip">DGDA snapshot 23 Nov</span>'
     )
 
 

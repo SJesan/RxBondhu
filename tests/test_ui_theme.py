@@ -35,7 +35,7 @@ class TestTheme(unittest.TestCase):
         hero = ui.HERO_TEMPLATE.substitute(ui.palette("dark"))
         self.assertIn("--rx-bg: #F6FAF7", css)
         self.assertIn("--rx-bg: #08130D", ui.CLEAN_CSS_TEMPLATE.substitute(ui.palette("dark")))
-        self.assertIn("own CNN · 95.90%", hero)
+        self.assertIn("CNN 95.90% = word-crop test accuracy", hero)
         self.assertNotIn("$", css)
         self.assertNotIn("$", hero)
 
@@ -52,16 +52,18 @@ class TestTheme(unittest.TestCase):
         self.assertIn("--rx-button-shadow:", css)
         self.assertEqual(ui.palette("light")["on_accent"], "#FFFFFF")
 
-    def test_red_flag_button_has_its_own_danger_style(self):
+    def test_not_sure_button_is_neutral_not_red(self):
         css = ui.CLEAN_CSS_TEMPLATE.substitute(ui.palette("light"))
-        self.assertIn('div[data-testid="stForm"] button', css)
-        self.assertIn("var(--rx-red-fg) !important", css)
+        form_css = css.split('div[data-testid="stForm"] button {', 1)[1].split('}', 1)[0]
+        self.assertIn("var(--rx-muted)", form_css)
+        self.assertNotIn("var(--rx-red-fg)", form_css)
+        self.assertIn("min-height:48px", form_css)
 
     def test_loading_capsule_animation_is_themed(self):
         html = ui.loading_html("dark")
         self.assertIn("rx-capsule-morph", html)
         self.assertIn("#34C97C", html)
-        self.assertIn("Two AI readers are reading", html)
+        self.assertIn("দুটি AI পড়ছে", html)
         self.assertNotIn("$", html)
 
 

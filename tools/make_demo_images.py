@@ -56,7 +56,6 @@ def make_one(index: int, lines: list[str]) -> None:
         draw.line((44, y + 42, w - 44, y + 42), fill="#E4EDE7", width=2)
 
     draw.text((40, h - 92), "Patient: Demo User (not real)", font=small_font, fill="#4A6654")
-    draw.text((40, h - 66), "-made for UI demo; replace tomorrow-", font=small_font, fill="#7A8F82")
 
     # A tiny blur/rotation makes the cards feel like paper without being noisy.
     img = img.rotate(rng.uniform(-1.2, 1.2), expand=False, fillcolor="#FFFEF9")
@@ -65,7 +64,21 @@ def make_one(index: int, lines: list[str]) -> None:
     img.save(OUT / f"demo_rx_{index:02d}.png", optimize=True)
 
 
+def make_crop_example() -> None:
+    """Small fictional example showing a tight box around medicine lines only."""
+    source = OUT / "demo_rx_01.png"
+    if not source.is_file():
+        return
+    image = Image.open(source).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    for offset in range(4):
+        draw.rectangle((82 + offset, 202 + offset, 432 - offset, 390 - offset),
+                       outline="#2E8B57", width=2)
+    image.save(OUT / "crop_example.png", optimize=True)
+
+
 if __name__ == "__main__":
     for number, prescription in enumerate(SETS, start=1):
         make_one(number, prescription)
+    make_crop_example()
     print(f"Wrote {len(SETS)} images to {OUT}")
