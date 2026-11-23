@@ -14,9 +14,12 @@ Safety rules:
   disclosed in More info, not in the main reading line.
 """
 
+import json
 import os
 import re
 from difflib import SequenceMatcher
+from functools import lru_cache
+from pathlib import Path
 
 from .lexicon import (GREEN_SCORE, brand_key, conflict_for, load_brands, lookup_exact,
                       match_brand, normalise_name, suggest_brands, verify_name)
@@ -32,6 +35,26 @@ VLM_SCORE = int(os.getenv("RX_VLM_SCORE", "90"))
 # Only a perfect normalised match from BOTH readers can override a confident
 # CNN guess. Near-exact (95-99) dual matches keep the veto.
 EXACT_MATCH_SCORE = 100
+
+
+@lru_cache(maxsize=1)
+def _cnn_known_keys() -> frozenset:
+    """Normalised brand keys our CNN was trained on (models/labels.json).
+
+    The CNN only knows its 78 training brands. When the readers saw a brand
+    outside that list, a CNN "disagreement" is out-of-distribution: it may still
+    block GREEN, but it must not escalate the line to RED on its own.
+    Empty set = labels missing, so the original RED veto is kept.
+    """
+    path = Path(__file__).resolve().parents[1] / "models" / "labels.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        names = data.get("class_names") or data.get("classes") or []
+    except Exception:
+        return frozenset()
+    return frozenset(brand_key(n) for n in names if n)
+
+
 STRONG_SIGNAL_SCORE = 90
 BOX_ONLY_REASON = "Verified by box check, not found in DGDA snapshot — confirm on paper"
 CNN_NOT_APPLICABLE = "not applicable to this name"
@@ -199,6 +222,14 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         reason = BOX_ONLY_REASON
         chosen = first["display"] or second["display"]
         generic = None
+    elif cnn_contradiction and _cnn_known_keys() and not any(
+            brand_key(n) in _cnn_known_keys() for n in names):
+        # The readers' brand is not one of the CNN's 78 classes, so the CNN
+        # cannot judge it. Never GREEN, but not RED on the CNN's word alone.
+        colour = "YELLOW"
+        reason = ("Brand is outside our CNN's 78 training brands, so only the photo "
+                  "readers could check it — confirm the spelling on the paper")
+        chosen, generic = next(iter(names)), first["generic"] or second["generic"]
     elif cnn_contradiction:
         colour = "RED"
         if both_confident:

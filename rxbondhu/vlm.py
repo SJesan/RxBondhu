@@ -5,6 +5,7 @@ goes to the model, and failures are reported honestly to the UI.
 """
 
 import io
+import time
 import json
 import os
 import re
@@ -146,7 +147,10 @@ def friendly_error(error, reader: str = "") -> str:
     return f"{prefix}temporarily unavailable ({text[:120]}) — try again."
 
 
-def read(image, model: str | None = None) -> dict:
+_BUSY = ("503", "overloaded", "unavailable", "high demand", "429", "resource_exhausted")
+
+
+def read(image, model: str | None = None, fallbacks=()) -> dict:
     """Send one image to Gemini; return {"lines": [...], "raw": str, "error": str}.
 
     Each line is {"medicine": str, "dose": str}. On any failure, lines is empty
@@ -157,6 +161,9 @@ def read(image, model: str | None = None) -> dict:
         return {"lines": [], "raw": "", "error": error, "model": model or ""}
 
     chain = _model_chain(model)
+    for extra in fallbacks or ():
+        if extra and extra not in chain:
+            chain.append(extra)       # backup models when the chosen one is busy
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, format="JPEG", quality=90)
     payload = buffer.getvalue()
@@ -172,14 +179,20 @@ def read(image, model: str | None = None) -> dict:
     raw = ""
     used = chain[-1]
     for candidate in chain:
-        try:
-            response = client.models.generate_content(model=candidate, contents=parts)
-            raw = (response.text or "").strip()
-            used = candidate
-            if raw:
+        for attempt in range(2):      # one quick retry if the model is busy
+            try:
+                response = client.models.generate_content(model=candidate, contents=parts)
+                raw = (response.text or "").strip()
+                used = candidate
                 break
-        except Exception as exc:
-            errors.append(f"{candidate}: {exc}")
+            except Exception as exc:
+                errors.append(f"{candidate}: {exc}")
+                if attempt == 0 and any(tag in str(exc).lower() for tag in _BUSY):
+                    time.sleep(1.5)
+                    continue
+                break
+        if raw:
+            break
     if not raw:
         return {"lines": [], "raw": "",
                 "error": "Gemini models failed: " + " | ".join(errors), "model": used}

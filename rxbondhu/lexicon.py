@@ -302,7 +302,8 @@ def suggest_brands(text: str, brands: list[dict] | None = None, n: int = 3,
     else:
         scored = ((difflib.SequenceMatcher(None, query, key).ratio() * 100, key)
                   for key in names)
-        pairs = sorted((p for p in scored if p[0] >= max(45, threshold - 10)), reverse=True)[: max(n * 4, 12)]
+        pairs = [(key, score) for score, key in
+                 sorted((p for p in scored if p[0] >= max(45, threshold - 10)), reverse=True)[: max(n * 4, 12)]]
 
     result = []
     seen = set()

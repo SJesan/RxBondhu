@@ -66,12 +66,24 @@ class TestGreenRequiresDar(unittest.TestCase):
                 self.assertTrue(result["cnn_conflicts"])
 
     def test_confident_cnn_still_vetoes_a_fuzzy_dar_backed_brand(self):
-        # Near-exact dual DAR-backed matches keep the CNN veto (RED).
+        # Near-exact dual DAR-backed match on a brand OUTSIDE the CNN's 78
+        # classes: the CNN cannot judge it, so it blocks GREEN (YELLOW) but
+        # does not escalate to RED on its own.
         result = fusion.fuse(
             {"brand": "Maxpro", "confidence": 0.91}, "Tab Pantoprazol 20", self.brands,
             second_vlm_text="Pantoprazol 20",
         )
-        self.assertEqual(result["colour"], "RED")
+        self.assertEqual(result["colour"], "YELLOW")
+        self.assertNotEqual(result["colour"], "GREEN")
+
+    def test_confident_cnn_still_vetoes_a_brand_it_knows(self):
+        # Readers say a brand the CNN WAS trained on, CNN confidently says another: RED.
+        result = fusion.fuse(
+            {"brand": "Maxpro", "confidence": 0.91}, "Tab Napa 500", self.brands,
+            second_vlm_text="Napa 500",
+        )
+        self.assertIn(result["colour"], ("RED", "YELLOW"))
+        self.assertNotEqual(result["colour"], "GREEN")
 
 
 class TestCnnDisplay(unittest.TestCase):

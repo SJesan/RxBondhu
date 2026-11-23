@@ -7,6 +7,7 @@ rerun so a sidebar icon can switch them without any client-side hack.
 """
 
 import base64
+import re
 from html import escape
 from pathlib import Path
 from string import Template

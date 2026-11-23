@@ -131,9 +131,15 @@ def analyse(image, max_words: int = 30, max_lines: int = MAX_LINES,
         if resize_vlm and sent is not None:
             sent = sent.copy()
             sent.thumbnail((1600, 1600))
-        gemini = vlm.read(sent, model=vlm.primary_model())
+        first_model, second_model = vlm.primary_model(), vlm.second_model()
+        spare = [m for m in (*vlm.DEFAULT_MODELS, "gemini-flash-latest")
+                 if m not in (first_model, second_model)]
+        gemini = vlm.read(sent, model=first_model, fallbacks=spare)
         if use_second_reader:
-            second = vlm.read(sent, model=vlm.second_model())
+            # never let reader 2 fall back to the model reader 1 actually used,
+            # so the two readings stay independent
+            second = vlm.read(sent, model=second_model,
+                              fallbacks=[m for m in spare if m != gemini.get("model")])
         else:
             second = {"lines": [], "raw": "",
                       "error": "Second reader disabled", "model": "offline"}
