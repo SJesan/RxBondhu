@@ -256,28 +256,120 @@ def lookup_exact(name: str, brands: list[dict] | None = None) -> dict | None:
 
 def suggest_brands(text: str, brands: list[dict] | None = None, n: int = 3,
                    threshold: int = 60) -> list[dict]:
-    """Top-n verified brand suggestions for the review screen."""
-    by_key, names = _get_index(brands)
+    """Top-n DGDA/box-checked brand suggestions for review.
+
+    Uses the trained DGDA name matcher when available, otherwise falls back to
+    RapidFuzz/difflib. Suggestions are never auto-applied by callers.
+    """
+    brands = brands if brands is not None else load_brands()
     query = brand_key(text)
-    if not query or not names:
+    if not query or not brands:
         return []
 
+    try:
+        from . import name_matcher
+        if name_matcher.available():
+            ranked = name_matcher.suggest(text, brands, n=n)
+            result = []
+            for row in ranked:
+                score = float(row.get("score", 0))
+                if score < max(35, threshold - 20):
+                    continue
+                dar_backed = bool(str(row.get("dar_no") or "").strip())
+                result.append({
+                    "brand": row.get("brand", ""),
+                    "generic": row.get("generic", ""),
+                    "score": round(score, 1),
+                    "dar_no": row.get("dar_no", ""),
+                    "match_kind": "near" if score >= GREEN_SCORE else "fuzzy",
+                    "in_dgda": True,
+                    "dar_backed": dar_backed,
+                    "source": row.get("source", ""),
+                    "form": row.get("form", ""),
+                    "strength": row.get("strength", ""),
+                    "matcher": "dgda_name_matcher",
+                })
+            if result:
+                return result[:n]
+    except Exception:
+        pass
+
+    by_key, names = _get_index(brands)
     if HAVE_RAPIDFUZZ:
-        hits = process.extract(query, names, scorer=fuzz.ratio, limit=n,
-                               score_cutoff=threshold)
+        hits = process.extract(query, names, scorer=fuzz.ratio, limit=max(n * 4, 12),
+                               score_cutoff=max(45, threshold - 10))
         pairs = [(key, float(score)) for key, score, _ in hits]
     else:
         scored = ((difflib.SequenceMatcher(None, query, key).ratio() * 100, key)
                   for key in names)
-        pairs = sorted((p for p in scored if p[0] >= threshold), reverse=True)[:n]
+        pairs = sorted((p for p in scored if p[0] >= max(45, threshold - 10)), reverse=True)[: max(n * 4, 12)]
 
     result = []
+    seen = set()
     for key, score in pairs:
         brand = by_key[key]
+        identity = brand_key(brand.get("brand", ""))
+        if not identity or identity in seen:
+            continue
+        seen.add(identity)
+        dar_backed = bool(str(brand.get("dar_no") or "").strip())
         result.append({
             "brand": brand["brand"], "generic": brand["generic"],
             "score": round(score, 1),
             "dar_no": brand.get("dar_no", ""),
             "match_kind": "near" if score >= GREEN_SCORE else "fuzzy",
+            "in_dgda": True,
+            "dar_backed": dar_backed,
+            "source": brand.get("source", ""),
+            "form": brand.get("form", ""),
+            "strength": brand.get("strength", ""),
+            "matcher": "rapidfuzz" if HAVE_RAPIDFUZZ else "difflib",
         })
+        if len(result) >= n:
+            break
     return result
+
+
+def verify_name(name: str, brands: list[dict] | None = None) -> dict:
+    """Verify a brand name against the committed DGDA snapshot.
+
+    Returns an explicit in-list status for UI/fusion: found, exact, dar_backed,
+    conflict, record, and DGDA suggestions. Suggestions are never auto-applied.
+    """
+    brands = brands if brands is not None else load_brands()
+    raw = str(name or "").strip()
+    key = brand_key(raw)
+    if not key:
+        return {
+            "input": raw, "normalized": key, "in_dgda": False, "found": False,
+            "exact": False, "dar_backed": False, "conflict": None, "record": None,
+            "suggestions": [], "status": "empty",
+        }
+
+    by_key, _ = _get_index(brands)
+    exact_row = by_key.get(key)
+    suggestions = suggest_brands(raw, brands, n=5)
+    if exact_row:
+        conflict = conflict_for(exact_row.get("brand") or raw)
+        dar_backed = bool(str(exact_row.get("dar_no") or "").strip()) and not conflict
+        record = dict(exact_row)
+        status = "dgda_dar" if dar_backed else "dgda_conflict" if conflict else "box_only"
+        return {
+            "input": raw, "normalized": key, "in_dgda": True, "found": True,
+            "exact": True, "dar_backed": dar_backed, "conflict": conflict,
+            "record": record, "suggestions": suggestions, "status": status,
+            "score": 100.0,
+        }
+
+    # Fuzzy match is a suggestion candidate, NOT proof the name is in DGDA.
+    hit = match_brand(raw, brands, threshold=85)
+    conflict = conflict_for(hit["brand"]) if hit else None
+    dar_backed = bool(hit and str(hit.get("dar_no") or "").strip() and not conflict)
+    return {
+        "input": raw, "normalized": key, "in_dgda": False, "found": False,
+        "exact": False, "dar_backed": False, "conflict": conflict,
+        "record": None, "suggestions": suggestions,
+        "status": "not_in_dgda",
+        "score": float(hit["score"]) if hit else 0.0,
+        "closest": hit,
+    }

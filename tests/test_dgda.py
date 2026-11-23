@@ -15,6 +15,7 @@ from unittest.mock import patch
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
+from rxbondhu.lexicon import verify_name  # noqa: E402
 from rxbondhu.ui import dgda_card_html, dgda_card_lines  # noqa: E402
 from tools import import_dgda  # noqa: E402
 
@@ -97,6 +98,28 @@ class TestImportDGDA(unittest.TestCase):
         self.assertEqual(len(meta["raw_sha256"]), 64)
         self.assertGreater(meta["brand_rows"], 20000)
         self.assertIn("GREEN requires a >=95", meta["note"])
+
+
+class TestDGDANameVerification(unittest.TestCase):
+    def test_verify_name_exact_dar_backed(self):
+        result = verify_name("Pantonix")
+        self.assertTrue(result["in_dgda"])
+        self.assertTrue(result["exact"])
+        self.assertEqual(result["status"], "dgda_dar")
+        self.assertTrue(result["dar_backed"])
+
+    def test_verify_name_not_in_snapshot_returns_suggestions(self):
+        result = verify_name("Nappa")
+        self.assertFalse(result["in_dgda"])
+        self.assertFalse(result["exact"])
+        self.assertEqual(result["status"], "not_in_dgda")
+        self.assertTrue(any(s["brand"].casefold() == "napa" for s in result["suggestions"]))
+
+    def test_verify_name_garbage_has_no_suggestions(self):
+        result = verify_name("Qzxjvww")
+        self.assertFalse(result["in_dgda"])
+        self.assertEqual(result["status"], "not_in_dgda")
+        self.assertEqual(result["suggestions"], [])
 
 
 class TestRecordCard(unittest.TestCase):

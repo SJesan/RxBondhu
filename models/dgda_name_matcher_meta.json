@@ -1,0 +1,16 @@
+{
+  "model": "dgda_name_matcher_reranker",
+  "input_dim": 10,
+  "brands": 23804,
+  "train_examples": 514164,
+  "val_examples": 57130,
+  "per_brand": 2,
+  "epochs": 3,
+  "seed": 42,
+  "metrics": {
+    "hit1": 0.859,
+    "hit5": 0.987,
+    "n": 1000
+  },
+  "note": "Synthetic noisy DGDA-name reranker; suggestions only, never auto-applied."
+}

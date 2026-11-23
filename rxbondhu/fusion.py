@@ -19,7 +19,7 @@ import re
 from difflib import SequenceMatcher
 
 from .lexicon import (GREEN_SCORE, conflict_for, load_brands, lookup_exact,
-                      match_brand, normalise_name, suggest_brands)
+                      match_brand, normalise_name, suggest_brands, verify_name)
 
 CNN_CONFIDENT = 0.60
 CNN_LOW = 0.35
@@ -224,7 +224,13 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
                       "CNN confidence below the safety threshold and readers are unsure")
             chosen, generic = "", None
 
-    suggestions = suggest_brands(vlm_text or second_vlm_text or cnn_brand or "", brands, n=3)
+    # Verify readable name against DGDA snapshot and suggest right names.
+    verify_target = vlm_text or second_vlm_text or cnn_brand or chosen or ""
+    verification = verify_name(verify_target, brands)
+    suggestions = verification.get("suggestions") or suggest_brands(verify_target, brands, n=3)
+    if not readable and colour != "GREEN" and suggestions:
+        # Don't guess; only surface suggestions when there is no readable line.
+        chosen = str(chosen or "").strip()
 
     # The side card shows provenance only. A fuzzy hit is labelled as such and
     # never presented as a confirmed DGDA identity.
@@ -251,6 +257,25 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
             "dar_backed": _dar_backed(record_hit),
             "conflict_reason": str((conflict or {}).get("reason") or ""),
             "conflict_generics": str((conflict or {}).get("dgda_generics") or ""),
+        }
+    elif verification.get("record"):
+        rec = verification["record"]
+        dgda_record = {
+            "brand": rec.get("brand"),
+            "generic": rec.get("generic"),
+            "strength": rec.get("strength", ""),
+            "form": rec.get("form", ""),
+            "company": rec.get("company", ""),
+            "dar_no": rec.get("dar_no", ""),
+            "source": rec.get("source", ""),
+            "source_url": rec.get("source_url", ""),
+            "accessed_at": rec.get("accessed_at", ""),
+            "score": verification.get("score", rec.get("score", 0)),
+            "match_kind": rec.get("match_kind", "fuzzy"),
+            "green_eligible": bool(verification.get("dar_backed")),
+            "dar_backed": bool(verification.get("dar_backed")),
+            "conflict_reason": str((verification.get("conflict") or {}).get("reason") or ""),
+            "conflict_generics": str((verification.get("conflict") or {}).get("dgda_generics") or ""),
         }
 
     # Main view: a wrong/conflicting CNN guess is never printed as a reading.

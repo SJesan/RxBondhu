@@ -17,7 +17,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rxbondhu import bangla, camera, multi, pipeline, recognizer, reminders, sharing, tts, ui, vlm  # noqa: E402
-from rxbondhu.lexicon import load_brands, lookup_exact  # noqa: E402
+from rxbondhu.lexicon import load_brands, lookup_exact, verify_name  # noqa: E402
 from rxbondhu.state_guard import (analysis_is_current, claim_read,  # noqa: E402
                                   confirmed_rows_are_current, release_read)
 
@@ -330,25 +330,37 @@ def screen_1():
 
 
 def _closest_hint_html(item):
-    """A small suggestion only when a readable name is unverified/fuzzy."""
-    colour = str(item.get("colour") or "").upper()
-    if colour not in ("UNVERIFIED", "YELLOW", "RED"):
-        return ""
+    """Show DGDA verification status and suggestion-only closest names."""
     name = str(item.get("name") or "").strip()
     if not name or name == "(unreadable)":
         return ""
     brands = load_brands()
-    exact = lookup_exact(name, brands)
-    if exact and str(exact.get("dar_no") or "").strip() and colour == "GREEN":
+    v = verify_name(name, brands)
+    colour = str(item.get("colour") or "").upper()
+
+    if colour == "GREEN" and v.get("dar_backed") and v.get("exact"):
         return ""
-    suggestions = [s.get("brand") for s in (item.get("suggestions") or []) if s.get("brand")]
+
+    if v.get("exact") and v.get("dar_backed"):
+        status = "DGDA-registered in snapshot"
+    elif v.get("exact") and v.get("in_dgda"):
+        status = "In DGDA snapshot, but not DAR-backed/confirmed"
+    else:
+        status = "Not in DGDA snapshot"
+
+    suggestions = [s.get("brand") for s in (v.get("suggestions") or item.get("suggestions") or []) if s.get("brand")]
     suggestions = [s for s in suggestions if str(s).casefold() != name.casefold()]
-    if not suggestions:
-        return ""
-    hint = ", ".join(escape(str(s)) for s in suggestions[:2])
+    hint = ""
+    if suggestions and colour in ("UNVERIFIED", "YELLOW", "RED"):
+        hint_names = ", ".join(escape(str(s)) for s in suggestions[:2])
+        hint = (
+            " · Closest DGDA: "
+            f"<span style='color:var(--rx-text);font-weight:700;'>{hint_names}</span>"
+            " <span style='color:var(--rx-muted);'>(suggestion only)</span>"
+        )
     return (
         f"<div style='color:var(--rx-muted);font-size:0.85rem;margin-top:4px;'>"
-        f"Closest match: {hint} — please check (suggestion only, not applied).</div>"
+        f"{escape(status)}{hint}</div>"
     )
 
 
@@ -591,23 +603,44 @@ def screen_3():
             last_prescription = number
         with st.container(border=True):
             c1, c2, c3 = st.columns([3, 3, 2], gap="small")
+            # Build DGDA-backed suggestion options (never auto-applied).
+            current_name = str(row.get("name") or "").strip()
+            base_options = list(row.get("options") or [])
+            v_now = verify_name(current_name, brands) if current_name else {"suggestions": []}
+            dgda_suggestions = [s.get("brand") for s in (v_now.get("suggestions") or row.get("suggestions") or []) if s.get("brand")]
+            if row.get("editable") or str(row.get("colour") or "").upper() in ("UNVERIFIED", "YELLOW", "RED"):
+                for s in dgda_suggestions:
+                    if s and s not in base_options:
+                        base_options.append(s)
+            row["options"] = base_options
+
             if row.get("editable"):
                 row["name"] = c1.text_input(
                     "Brand — unverified, type the name from the paper",
                     row["name"], key=f"name_{row['index']}",
                 )
+                if dgda_suggestions:
+                    pick = c1.selectbox(
+                        "DGDA suggestion (optional, not auto-applied)",
+                        ["(keep typed name)"] + dgda_suggestions[:5],
+                        index=0,
+                        key=f"dgda_pick_{row['index']}",
+                    )
+                    if pick != "(keep typed name)":
+                        row["name"] = pick
             else:
                 row["name"] = c1.selectbox("Brand (choose or correct)", row["options"],
                                            index=0, key=f"name_{row['index']}")
             row["dose"] = c2.text_input("Dose (e.g. 1+0+1, BD, সকাল ১ টি)",
                                         row["dose"], key=f"dose_{row['index']}")
-            # A human correction from the paper is the highest-trust signal.
-            # Re-check the badge as well as the generic when the name changes,
-            # otherwise a corrected brand would keep an old RED flag.
+
+            # A human correction/selection is high-trust input, but we still verify
+            # against DGDA snapshot. Never auto-apply suggestions.
             name = str(row.get("name") or "").strip()
+            v = verify_name(name, brands) if name else None
             if name and name != str(row.get("original_name") or ""):
-                exact = lookup_exact(name, brands)
-                if exact and str(exact.get("dar_no") or "").strip():
+                if v and v.get("dar_backed") and v.get("exact"):
+                    exact = v.get("record") or {}
                     row["generic"] = exact.get("generic") or row.get("generic") or ""
                     row["dgda_record"] = exact
                     row["colour"] = "GREEN"
@@ -615,24 +648,30 @@ def screen_3():
                         "Corrected by you to an exact DGDA-registered brand "
                         "— still confirm with the prescriber."
                     )
-                elif exact:
+                elif v and v.get("in_dgda"):
+                    exact = v.get("record") or {}
                     row["generic"] = exact.get("generic") or row.get("generic") or ""
                     row["dgda_record"] = exact
                     row["colour"] = "YELLOW"
                     row["reason"] = (
-                        "Verified by box check, not found in DGDA snapshot — confirm on paper."
+                        "In DGDA snapshot but not DAR-backed/conflict-checked for GREEN — confirm on paper."
                     )
                 else:
                     row["colour"] = "UNVERIFIED"
-                    row["reason"] = (
-                        "Corrected by you; name not in the DGDA snapshot — check the box."
-                    )
+                    row["reason"] = "Not in DGDA snapshot — check the box/prescriber."
+                    row["dgda_record"] = None
+            elif v:
+                # Keep provenance visible even when unchanged.
+                if v.get("in_dgda") and v.get("record"):
+                    row["dgda_record"] = row.get("dgda_record") or v.get("record")
+
             provenance = ui.identity_provenance(row.get("dgda_record"))
+            in_list = "In DGDA" if (v and v.get("in_dgda")) else "Not in DGDA"
             c3.markdown(
                 f"<div class='rx-review-badge'>{colour_badge(row['colour'])}"
                 f"<b style='color:var(--rx-text);font-size:0.95rem;'>"
                 f"{escape(str(row['generic'] or 'unknown'))}</b></div>"
-                f"<div class='rx-status-line'>{escape(ui.status_line(row['colour']))}</div>"
+                f"<div class='rx-status-line'>{escape(ui.status_line(row['colour']))} · {escape(in_list)}</div>"
                 f"<div class='rx-review-meta'>{escape(provenance)}</div>",
                 unsafe_allow_html=True,
             )
