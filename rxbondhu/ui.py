@@ -234,6 +234,11 @@ div.stButton > button:disabled {
   background: linear-gradient(180deg, var(--rx-surface-alt) 0%, var(--rx-bg) 100%) !important;
   border-right: 1px solid var(--rx-border) !important;
   color: var(--rx-text) !important;
+  min-height: 100vh;
+}
+[data-testid="stSidebar"] > div:first-child {
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--rx-surface-alt) 0%, var(--rx-bg) 100%) !important;
 }
 /* Keep the whole sidebar identity + AI disclosure on one screen. */
 [data-testid="stSidebar"] .block-container { padding: 0.6rem 0.9rem 1rem !important; }
@@ -245,10 +250,10 @@ div.stButton > button:disabled {
 [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div { margin-bottom: 0.1rem; }
 [data-testid="stSidebar"] div.stButton > button { padding: 0.32rem 0.8rem !important; }
 [data-testid="stSidebar"] [data-testid="stExpander"] { margin-top: 0.2rem; }
-.rx-step-nav { display: flex; gap: 8px; margin: 10px 0 8px; }
+.rx-step-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 8px; }
 .rx-step-nav span {
   padding: 8px 14px; border-radius: 999px; border: 1px solid var(--rx-border);
-  font-size: 1rem; font-weight: 700; color: var(--rx-muted); white-space: nowrap;
+  font-size: 1rem; font-weight: 700; color: var(--rx-muted); white-space: normal;
 }
 .rx-step-nav span.on {
   background: var(--rx-accent-soft); color: var(--rx-accent); font-weight: 800;
@@ -358,10 +363,8 @@ HERO_TEMPLATE = Template("""
       → DGDA-checked brand → Bangla schedule + audio.<br>
       <span style="color:$accent;font-weight:700;">Safe by design: nothing becomes a schedule before you confirm.</span>
     </p>
-    <div style="margin-top:10px;">
-      <span class="rx-chip">2 Gemini readers</span>
-      <span class="rx-chip">CNN 95.90% = word-crop test accuracy</span>
-      <span class="rx-chip">DGDA snapshot 23 Nov</span>
+    <div style="margin-top:8px;color:$hero_muted;font-size:0.8rem;">
+      2 Gemini readers · own CNN safety veto · DGDA snapshot 23 Nov
     </div>
   </div>
   <div id="rx-fx" style="width:250px;height:160px;flex:0 0 250px;">
@@ -511,23 +514,20 @@ def demo_thumb_html(path, label: str, index: int) -> str:
     safe_name = escape(path.name)
     return (
         f'<a class="rx-demo-link" href="?demo={safe_name}" target="_self" '
-        f'title="Use {safe_label} as the prescription photo">'
+        f'title="Load {safe_label} into the reader">'
         f'<img src="data:{mime};base64,{encoded}" alt="{safe_label}">'
-        f'<span>{safe_label} · click to use</span></a>'
+        f'<span>{safe_label} · load demo</span></a>'
     )
 
 
 def sidebar_header_html(info: dict | None, key_ok: bool) -> str:
-    """Modern, compact sidebar identity + status chips."""
+    """Modern, compact sidebar identity."""
     info = info or {}
-    cnn_class = "rx-chip-good" if info.get("available") else "rx-chip-warn"
-    cnn_text = ("CNN 95.90% = word-crop test accuracy"
-                if info.get("available") else "CNN offline")
+    status = "CNN ready" if info.get("available") else "CNN offline"
     return (
         '<p class="rx-sidebar-title">💊 RxBondhu</p>'
         '<p class="rx-sidebar-sub">Handwritten prescription → Bangla schedule</p>'
-        f'<span class="rx-chip {cnn_class}">{escape(cnn_text)}</span>'
-        '<span class="rx-chip">DGDA snapshot 23 Nov</span>'
+        f'<p class="rx-sidebar-sub" style="margin-top:-0.2rem;">{escape(status)} · DGDA snapshot 23 Nov</p>'
     )
 
 
@@ -575,6 +575,41 @@ def status_line(colour: str) -> str:
     return STATUS_LINES.get(str(colour or "").upper(), "ফার্মাসিস্টকে জিজ্ঞাসা করুন")
 
 
+def _clean_form(value) -> str:
+    """Shorten noisy DGDA form labels for display."""
+    text = str(value or "").strip()
+    if not text:
+        return "—"
+    low = text.casefold()
+    mappings = [
+        ("mups tablet", "Tablet"),
+        ("orodispersible tablet", "Tablet"),
+        ("dispersible tablet", "Tablet"),
+        ("chewable tablet", "Tablet"),
+        ("effervescent tablet", "Tablet"),
+        ("sustained release tablet", "Tablet"),
+        ("extended release tablet", "Tablet"),
+        ("delayed release tablet", "Tablet"),
+        ("film coated tablet", "Tablet"),
+        ("coated tablet", "Tablet"),
+        ("tablet", "Tablet"),
+        ("capsule", "Capsule"),
+        ("syrup", "Syrup"),
+        ("suspension", "Suspension"),
+        ("injection", "Injection"),
+        ("cream", "Cream"),
+        ("ointment", "Ointment"),
+        ("drop", "Drops"),
+        ("solution", "Solution"),
+        ("powder", "Powder"),
+    ]
+    for needle, label in mappings:
+        if needle in low:
+            return label
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    return cleaned[:40] if cleaned else "—"
+
+
 def identity_provenance(record: dict | None) -> str:
     """Short, honest identity note used on the review screen."""
     record = record or {}
@@ -611,7 +646,7 @@ def dgda_card_lines(record: dict | None) -> list[str]:
         f"ব্র্যান্ড: {record.get('brand') or '—'}",
         f"জেনেরিক: {record.get('generic') or '—'}",
         f"শক্তি: {record.get('strength') or '—'}",
-        f"ডোজ ফর্ম: {record.get('form') or '—'}",
+        f"ডোজ ফর্ম: {_clean_form(record.get('form'))}",
         f"কোম্পানি: {record.get('company') or '—'}",
         f"উৎস: {source or '—'}",
         f"সংগৃহীত: {record.get('accessed_at') or '—'}",
@@ -653,11 +688,12 @@ def dgda_compact_lines(record: dict | None) -> list[str]:
     dar = str(record.get("dar_no") or "").strip()
     source = str(record.get("source") or "").lower()
     box_only = not dar and ("box" in source or "pharmacist" in source)
+    form = _clean_form(record.get("form"))
     return [
         f"Generic: {record.get('generic') or '—'}",
         "DAR No: not found in DGDA snapshot" if box_only else f"DAR No: {dar or '—'}",
         f"Strength: {record.get('strength') or '—'}",
-        f"Form: {record.get('form') or '—'}",
+        f"Form: {form}",
         ("Verified by box check — identity only, not dose advice." if box_only
          else "DGDA-registered identity only — not dose advice."),
     ]

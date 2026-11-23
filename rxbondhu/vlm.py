@@ -130,20 +130,20 @@ def friendly_error(error, reader: str = "") -> str:
     text = " ".join(str(error or "").split())
     low = text.casefold()
     prefix = f"{reader} " if reader else ""
+    if "503" in low or "overloaded" in low or "high demand" in low or "unavailable" in low:
+        return f"{prefix}is busy right now — try again in a moment."
     if "429" in low or "quota" in low or "rate" in low or "resource_exhausted" in low:
         return (f"{prefix}quota reached — free limit is full. Try again later; "
                 "the app continues in CNN-only mode.")
-    if "api key" in low or "empty" in low or "not found" in low and "key" in low:
+    if "api key" in low or "empty" in low or ("not found" in low and "key" in low):
         return f"{prefix}API key is missing. Add it in .env or Streamlit secrets."
     if any(word in low for word in ("network", "timeout", "timed out", "connection",
                                     "dns", "unreachable", "ssl")):
         return f"{prefix}network error — check the connection and try again."
     if not text or "traceback" in low or 'file "' in low:
         return f"{prefix}reader is unavailable right now — no reading was invented."
-    # Last resort: a single short line, with anything that looks like a path
-    # or traceback frame removed.
     text = re.sub(r"(?i)file\s+\"[^\"]+\",\s*line\s+\d+", "", text)
-    return f"{prefix}{text[:160]}"
+    return f"{prefix}temporarily unavailable ({text[:120]}) — try again."
 
 
 def read(image, model: str | None = None) -> dict:

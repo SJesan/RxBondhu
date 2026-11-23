@@ -35,7 +35,7 @@ class TestTheme(unittest.TestCase):
         hero = ui.HERO_TEMPLATE.substitute(ui.palette("dark"))
         self.assertIn("--rx-bg: #F6FAF7", css)
         self.assertIn("--rx-bg: #08130D", ui.CLEAN_CSS_TEMPLATE.substitute(ui.palette("dark")))
-        self.assertIn("CNN 95.90% = word-crop test accuracy", hero)
+        self.assertIn("own CNN safety veto", hero)
         self.assertNotIn("$", css)
         self.assertNotIn("$", hero)
 
@@ -92,7 +92,7 @@ class TestCompactHelpers(unittest.TestCase):
         self.assertIn('href="?demo=demo_rx_01.png"', html)
         self.assertIn('target="_self"', html)
         self.assertIn("data:image/png;base64,", html)
-        self.assertIn("click to use", html)
+        self.assertIn("load demo", html)
 
     def test_crop_box_is_drawn_on_the_original_size(self):
         image = Image.new("RGB", (100, 80), "white")

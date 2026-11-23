@@ -201,15 +201,14 @@ def colour_badge(colour: str) -> str:
 def screen_1():
     ui.step_header(1, "১. ছবি দিন", "Upload a prescription photo or take one, then drag a box around the medicine lines only.")
     st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
-    st.caption("Made by Team Zero-Shot · solo build for CoU AI Hackathon 2026")
+    st.caption("Solo build for CoU AI Hackathon 2026")
     loaded = st.session_state.pop("demo_loaded", None)
     if loaded:
         st.success(f"Loaded {loaded} — drag the crop box, then read it.")
 
     info = recognizer.model_info()
     key_ok, _ = vlm.available()
-    with st.expander("🤖 AI pipeline — what is trained, what is verified", expanded=False):
-        st.markdown(ui.model_info_html(info, key_ok), unsafe_allow_html=True)
+    # AI pipeline details live in the sidebar Model info (collapsed by default).
 
     # Small fictional demo strip — clicking a thumbnail loads it like an upload.
     demo_dir = Path(__file__).resolve().parent / "assets" / "demo"
@@ -225,11 +224,10 @@ def screen_1():
                                 unsafe_allow_html=True)
         st.write("")
 
-    with st.expander("🧪 Our CNN — proof demo (single word crop)"):
+    with st.expander("🧪 CNN proof (single word crop, optional)", expanded=False):
         st.caption(
-            "Our own EfficientNet-B0, fine-tuned here: held-out **word-crop** accuracy "
-            "0.9590 (748/780). That is a clean word image, NOT a whole prescription photo — "
-            "real-photo results are measured separately and reported honestly."
+            "Our own EfficientNet-B0: held-out **word-crop** accuracy 0.9590 (748/780). "
+            "Word-crop proof only — not whole-photo accuracy."
         )
         word_file = st.file_uploader("Upload one clear medicine word crop",
                                      type=["jpg", "jpeg", "png", "webp"], key="word_proof")
@@ -239,43 +237,18 @@ def screen_1():
             if st.button("Read this word with our CNN"):
                 prediction = recognizer.predict_word(word_image, top_k=3)
                 if prediction["top"]:
-                    st.success(
-                        f"Top: **{prediction['brand']}** ({prediction['confidence']:.2f})"
-                    )
+                    st.success(f"Top: **{prediction['brand']}** ({prediction['confidence']:.2f})")
                     st.caption("Other guesses: " + ", ".join(
                         f"{h['brand']} {h['confidence']:.2f}" for h in prediction["top"][1:]
                     ))
                 else:
                     st.error("CNN checkpoint not available — nothing was guessed.")
 
-    tab_upload, tab_camera = st.tabs(["Upload photo", "Use camera"])
+    tab_upload, tab_camera = st.tabs(["Upload photo(s)", "Use camera"])
     with tab_upload:
-        uploaded = st.file_uploader("Prescription image", type=["jpg", "jpeg", "png", "webp"])
-        if uploaded:
-            st.session_state.source = Image.open(uploaded).convert("RGB")
-            seen = (uploaded.name, uploaded.size)
-            if st.session_state.single_seen != seen:
-                st.session_state.single_seen = seen
-                st.session_state.multi_mode = False
-                st.session_state.sources = []
-                st.session_state.multi_upload_seq += 1  # clears the multi uploader
-    with tab_camera:
-        st.caption("Use the **rear camera** for prescriptions.")
-        st.markdown("**Camera not working? Use the Upload photo tab** — it works on every device.")
-        photo = camera.capture()
-        if photo is not None:
-            st.session_state.source = photo
-            st.session_state.multi_mode = False
-            st.session_state.sources = []
-            st.session_state.multi_upload_seq += 1  # camera stays single-image
-
-    # Separate 2-3 image uploader. The single uploader, camera and demo strip
-    # above are unchanged; multi mode only exists while this has files.
-    with st.expander("📚 Multiple prescriptions (2–3 photos)", expanded=False):
-        st.caption("১–৩ ছবি আপলোড করুন — প্রতিটির নিজস্ব ক্রপ বক্স থাকবে। "
-                   "Upload 1–3 photos; each keeps its own crop box and is read one at a time.")
+        st.caption("১–৩টি প্রেসক্রিপশন ছবি দিন। Upload 1–3 photos; each gets its own crop box.")
         files = st.file_uploader(
-            "Prescription images (up to 3)", type=["jpg", "jpeg", "png", "webp"],
+            "Prescription image(s) (1–3)", type=["jpg", "jpeg", "png", "webp"],
             accept_multiple_files=True,
             key=f"multi_files_{st.session_state.multi_upload_seq}",
         )
@@ -285,27 +258,29 @@ def screen_1():
                            "Maximum 3 images — only the first 3 were used.")
                 files = files[:3]
             seen_multi = tuple((item.name, item.size) for item in files)
-            st.session_state.sources = [
-                {"image": Image.open(item).convert("RGB")}
-                for item in files
-            ]
+            images = [Image.open(item).convert("RGB") for item in files]
             if st.session_state.get("multi_seen") != seen_multi:
                 st.session_state.multi_seen = seen_multi
                 st.session_state.single_seen = None
-            st.session_state.multi_mode = True
-            st.session_state.source = None
-        else:
-            # Streamlit prunes uploader widget state while screens 2/3 render.
-            # Keep the already-cropped sources so Back does not lose the
-            # prescriptions or the cached readings; Clear is explicit below.
-            pass
+                st.session_state.sources = [{"image": img} for img in images]
+                st.session_state.multi_mode = len(images) > 1
+                st.session_state.source = images[0] if len(images) == 1 else None
+    with tab_camera:
+        st.caption("Use the **rear camera** for prescriptions.")
+        st.markdown("**Camera not working? Use the Upload photo(s) tab** — it works on every device.")
+        photo = camera.capture()
+        if photo is not None:
+            st.session_state.source = photo
+            st.session_state.multi_mode = False
+            st.session_state.sources = [{"image": photo}]
+            st.session_state.multi_upload_seq += 1  # camera stays single-image
 
     if st.session_state.multi_mode:
         multi_photo_screen()
         return
 
     if st.session_state.source is None:
-        st.info("Choose a photo above, or use one of the demo images as a visual reference.")
+        st.info("Choose a photo above, or click a demo card to load it into the reader.")
         return
 
     st.subheader("Select the medicine area")
@@ -354,6 +329,29 @@ def screen_1():
                 release_read(st.session_state)
 
 
+def _closest_hint_html(item):
+    """A small suggestion only when a readable name is unverified/fuzzy."""
+    colour = str(item.get("colour") or "").upper()
+    if colour not in ("UNVERIFIED", "YELLOW", "RED"):
+        return ""
+    name = str(item.get("name") or "").strip()
+    if not name or name == "(unreadable)":
+        return ""
+    brands = load_brands()
+    exact = lookup_exact(name, brands)
+    if exact and str(exact.get("dar_no") or "").strip() and colour == "GREEN":
+        return ""
+    suggestions = [s.get("brand") for s in (item.get("suggestions") or []) if s.get("brand")]
+    suggestions = [s for s in suggestions if str(s).casefold() != name.casefold()]
+    if not suggestions:
+        return ""
+    hint = ", ".join(escape(str(s)) for s in suggestions[:2])
+    return (
+        f"<div style='color:var(--rx-muted);font-size:0.85rem;margin-top:4px;'>"
+        f"Closest match: {hint} — please check (suggestion only, not applied).</div>"
+    )
+
+
 def _render_status(analysis):
     """One short status strip and honest reader-failure notes (shared)."""
     cnn_ok = bool(analysis.get("cnn_available"))
@@ -366,20 +364,28 @@ def _render_status(analysis):
         f"<span class='rx-chip'>{escape(str(analysis.get('vlm_model') or 'Reader 1 offline'))}</span>"
         f"<span class='rx-chip'>{escape(str(analysis.get('vlm2_model') or 'Reader 2 offline'))}</span>"
     )
-    st.markdown(status, unsafe_allow_html=True)
+    items = analysis.get("items") or []
+    counts = {"GREEN": 0, "YELLOW": 0, "RED": 0, "UNVERIFIED": 0}
+    for item in items:
+        colour = str(item.get("colour") or "").upper()
+        if colour in counts:
+            counts[colour] += 1
+    summary = (
+        f"{len(items)} lines: {counts['GREEN']} GREEN, {counts['YELLOW']} YELLOW, "
+        f"{counts['RED']} RED, {counts['UNVERIFIED']} UNVERIFIED"
+    )
+    st.markdown(f"**{escape(summary)}**<br>{status}", unsafe_allow_html=True)
     r1_name = str(analysis.get("vlm_model") or "Reader 1")
     r2_name = str(analysis.get("vlm2_model") or "Reader 2")
     if vlm_error:
         st.warning(
-            f"{r1_name} (Reader 1) unavailable: {vlm.friendly_error(vlm_error, r1_name)} "
-            "— continuing with Reader 2 and CNN. No reading is invented; "
-            "single-reader lines are capped at YELLOW."
+            f"Reader 1 is busy; continuing with Reader 2 and CNN. "
+            f"Single-reader lines stay YELLOW at most. ({vlm.friendly_error(vlm_error, r1_name)})"
         )
     if second_error:
         st.warning(
-            f"{r2_name} (Reader 2) unavailable: {vlm.friendly_error(second_error, r2_name)} "
-            "— continuing with Reader 1 and CNN. No reading is invented; "
-            "single-reader lines are capped at YELLOW."
+            f"Reader 2 is busy; continuing with Reader 1. "
+            f"Single-reader lines stay YELLOW at most. ({vlm.friendly_error(second_error, r2_name)})"
         )
 
 
@@ -397,20 +403,11 @@ def _render_item_card(item, form_key, persist=None, label=None):
         )
         right.markdown(
             f"<div class='rx-status-line'>{escape(ui.status_line(item['colour']))}</div>"
-            f"<div class='rx-reason'>{escape(str(item['reason']))}</div>",
+            f"<div class='rx-reason'>{escape(str(item['reason']))}</div>"
+            f"{_closest_hint_html(item)}",
             unsafe_allow_html=True,
         )
         cnn_display = escape(str(item.get("cnn_display") or "not used for this line"))
-        right.markdown(
-            "<div class='rx-readings'>"
-            f"<div><b>CNN:</b> {cnn_display}</div>"
-            f"<div><b>Reader 1:</b> "
-            f"{escape(str(item.get('vlm_guess') or item.get('vlm_text') or '—'))}</div>"
-            f"<div><b>Reader 2:</b> "
-            f"{escape(str(item.get('vlm2_guess') or item.get('vlm2_text') or '—'))}</div>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
         # Streamlit Cloud can hot-reload app.py while keeping an older
         # rxbondhu.ui in sys.modules. Never let a stale helper crash the
         # review screen: show a neutral card until the app is rebooted.
@@ -426,16 +423,21 @@ def _render_item_card(item, form_key, persist=None, label=None):
             compact_html = fallback_html
         card.markdown(compact_html, unsafe_allow_html=True)
         with card.expander("More info", expanded=False):
+            st.markdown(
+                "<div class='rx-readings'>"
+                f"<div><b>CNN:</b> {cnn_display}</div>"
+                f"<div><b>Reader 1:</b> {escape(str(item.get('vlm_guess') or item.get('vlm_text') or '—'))}</div>"
+                f"<div><b>Reader 2:</b> {escape(str(item.get('vlm2_guess') or item.get('vlm2_text') or '—'))}</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
             raw_cnn = str(item.get("cnn_brand") or "—")
             raw_conf = float(item.get("cnn_confidence") or 0.0)
-            st.caption(
-                f"CNN raw guess (word-crop model only): {raw_cnn} ({raw_conf:.2f})"
-            )
+            st.caption(f"CNN raw guess (word-crop model only): {raw_cnn} ({raw_conf:.2f})")
             if item.get("cnn_conflicts"):
                 st.caption(
-                    "This guess conflicts with the readers' verified brand, so it "
-                    "is not used as a reading. Our CNN has 78 training classes and "
-                    "was trained on clean word crops, not whole prescriptions."
+                    "This guess conflicts with the readable/verified name, so it is shown here only. "
+                    "Our CNN has 78 training classes and was trained on clean word crops, not whole prescriptions."
                 )
             try:
                 full_html = ui.dgda_card_html(item.get("dgda_record"))
@@ -750,7 +752,7 @@ def sidebar():
             "<div class='rx-sidebar-foot'>"
             "Built fresh for CoU AI Hackathon 2026. AI: OpenCode (Big Pickle) + "
             "Google Gemini (2 readers) + our own CNN. Groq and RxFusion were "
-            "evaluated but not shipped.<br><b>Made by Team Zero-Shot</b></div>",
+            "evaluated but not shipped.<br><b>Solo build</b></div>",
             unsafe_allow_html=True,
         )
 

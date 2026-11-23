@@ -23,10 +23,13 @@ class TestReadableLayout(unittest.TestCase):
     def test_light_muted_text_is_dark_enough(self):
         self.assertEqual(ui.palette("light")["muted"], "#355445")
 
-    def test_step_indicator_is_large(self):
-        step_nav = self.css.split(".rx-step-nav span {", 1)[1].split("}", 1)[0]
-        self.assertIn("font-size: 1rem", step_nav)
-        self.assertIn("padding: 8px 14px", step_nav)
+    def test_step_indicator_is_large_and_wraps(self):
+        nav = self.css.split(".rx-step-nav {", 1)[1].split("}", 1)[0]
+        span = self.css.split(".rx-step-nav span {", 1)[1].split("}", 1)[0]
+        self.assertIn("flex-wrap: wrap", nav)
+        self.assertIn("font-size: 1rem", span)
+        self.assertIn("padding: 8px 14px", span)
+        self.assertIn("white-space: normal", span)
 
     def test_cards_have_generous_padding(self):
         card = self.css.split('div[data-testid="stContainer"] {', 1)[1].split("}", 1)[0]
@@ -41,10 +44,11 @@ class TestHeroAndSidebar(unittest.TestCase):
         self.assertNotIn("<canvas", html)
         self.assertNotIn("$", html)
 
-    def test_sidebar_has_at_most_two_chips_and_labelled_number(self):
+    def test_sidebar_header_is_compact_and_has_no_duplicate_cnn_chip(self):
         html = ui.sidebar_header_html({"available": True}, True)
-        self.assertEqual(html.count('class="rx-chip'), 2)
-        self.assertIn("CNN 95.90% = word-crop test accuracy", html)
+        self.assertNotIn('class="rx-chip', html)
+        self.assertIn("CNN ready", html)
+        self.assertIn("DGDA snapshot 23 Nov", html)
         self.assertNotIn("Groq", html)
 
     def test_groq_disclosure_lives_in_model_info(self):

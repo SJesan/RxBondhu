@@ -163,7 +163,14 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         generic = None
     elif cnn_contradiction:
         colour = "RED"
-        reason = "Our CNN disagrees with both photo readers - confirm this line"
+        if both_confident:
+            reason = "Our CNN disagrees with both photo readers — confirm this line"
+        elif first["brand"]:
+            reason = "Our CNN disagrees with Reader 1 — confirm this line"
+        elif second["brand"]:
+            reason = "Our CNN disagrees with Reader 2 — confirm this line"
+        else:
+            reason = "Our CNN disagrees with the readable line — confirm this line"
         chosen, generic = next(iter(names)), first["generic"] or second["generic"]
     elif both_green_eligible:
         colour = "GREEN"
@@ -192,7 +199,18 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
     elif cnn_confident:
         colour = "YELLOW"
         reason = "Only our CNN is confident — confirm the brand on the paper"
-        chosen, generic = cnn_row["brand"], cnn_row["generic"]
+        # Don't show the CNN's out-of-context guess as the medicine name when
+        # readers saw something readable. Show what the readers saw, unverified.
+        if first["display"] or second["display"]:
+            chosen = first["display"] or second["display"]
+            generic = None
+            colour = "UNVERIFIED"
+            reason = (
+                "Readers saw a name our CNN could not verify — check the paper. "
+                "CNN guess is shown in More info only."
+            )
+        else:
+            chosen, generic = cnn_row["brand"], cnn_row["generic"]
     else:
         if readable:
             colour = "UNVERIFIED"
