@@ -23,8 +23,10 @@ except ImportError:  # stdlib fallback so tests run before pip finishes
     HAVE_RAPIDFUZZ = False
 
 
-DGDA_CSV = os.path.join("data", "dgda_brands.csv")
-MANUAL_CSV = os.path.join("data", "manual_brands.csv")
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DGDA_CSV = os.path.join(_ROOT, "data", "dgda_brands.csv")
+MANUAL_CSV = os.path.join(_ROOT, "data", "manual_brands.csv")
+CONFLICTS_CSV = os.path.join(_ROOT, "data", "dgda_conflicts.csv")
 
 # 95 is a fixed safety policy. The env override exists only so the evaluator
 # can reproduce the pre-import baseline in one command; the app never sets it.
@@ -87,6 +89,26 @@ def brand_key(text: str) -> str:
         previous = key
         key = TRAIL_STRENGTH.sub("", key).strip()
     return key
+
+
+@lru_cache(maxsize=1)
+def _conflict_index() -> dict[str, dict]:
+    """Quarantined brand keys: DGDA disagrees with the box/pharmacist note."""
+    index: dict[str, dict] = {}
+    if not os.path.exists(CONFLICTS_CSV):
+        return index
+    with open(CONFLICTS_CSV, "r", encoding="utf-8-sig", newline="") as fh:
+        for row in csv.DictReader(fh):
+            key = brand_key(row.get("brand_key") or row.get("brand") or "")
+            if key:
+                index[key] = dict(row)
+    return index
+
+
+def conflict_for(brand: str) -> dict | None:
+    """Return the conflict row for a brand, if its identity was quarantined."""
+    key = brand_key(brand)
+    return dict(_conflict_index()[key]) if key in _conflict_index() else None
 
 
 def _read_csv(path: str) -> list[dict]:

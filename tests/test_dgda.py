@@ -109,7 +109,7 @@ class TestRecordCard(unittest.TestCase):
             "match_kind": "exact",
         })
         text = " ".join(lines).lower()
-        self.assertIn("dgda-registered medicine", text)
+        self.assertIn("dgda-registered (dar no 394-0004-067)", text)
         self.assertIn("394-0004-067", text)
         self.assertIn("omeprazole", text)
         for banned in ("approved", "price", "tk", "মূল্য"):

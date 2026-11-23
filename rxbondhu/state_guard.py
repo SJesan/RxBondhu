@@ -14,6 +14,7 @@ ANALYSIS_KEYS = (
 
 ITEM_KEYS = (
     "index", "name", "reason", "colour", "cnn_brand", "cnn_confidence",
+    "cnn_display", "cnn_conflicts",
     "vlm_guess", "vlm_text", "vlm2_guess", "vlm2_text", "agreement",
     "dose_text", "suggestions", "generic", "box", "dgda_record",
 )

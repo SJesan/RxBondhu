@@ -2,20 +2,24 @@
 
 Safety rules:
 - A brand outside the verified lexicon is never GREEN and never auto-accepted.
+- GREEN also needs a DGDA DAR No. A box-checked-only or conflicted identity
+  (Napa, Fexo, Ace, ...) is capped at YELLOW with explicit wording — never
+  "DGDA not matched" next to a GREEN badge, and never "not approved".
 - RED/YELLOW/UNVERIFIED lines always need a human confirmation step.
 - The CNN is a safety veto and proof of an own trained model, except when both
-  readers independently make an EXACT (100) match to the same DGDA brand. That
-  exception prevents the 78-class word-crop CNN from red-flagging real photos
-  it was never trained on (e.g. Pantonix, Lysivin); final confirmation is still
-  mandatory on Screen 3.
+  readers independently make an EXACT (100) match to the same DAR-backed DGDA
+  brand. That exception prevents the 78-class word-crop CNN from red-flagging
+  real photos it was never trained on (e.g. Pantonix, Lysivin); final
+  confirmation is still mandatory on Screen 3. A contradictory CNN guess is
+  disclosed in More info, not in the main reading line.
 """
 
 import os
 import re
 from difflib import SequenceMatcher
 
-from .lexicon import (GREEN_SCORE, load_brands, lookup_exact, match_brand,
-                      normalise_name, suggest_brands)
+from .lexicon import (GREEN_SCORE, conflict_for, load_brands, lookup_exact,
+                      match_brand, normalise_name, suggest_brands)
 
 CNN_CONFIDENT = 0.60
 CNN_LOW = 0.35
@@ -28,6 +32,13 @@ VLM_SCORE = int(os.getenv("RX_VLM_SCORE", "90"))
 # Only a perfect normalised match from BOTH readers can override a confident
 # CNN guess. Near-exact (95-99) dual matches keep the veto.
 EXACT_MATCH_SCORE = 100
+BOX_ONLY_REASON = "Verified by box check, not found in DGDA snapshot — confirm on paper"
+CNN_NOT_APPLICABLE = "not applicable to this name"
+
+
+def _dar_backed(hit: dict | None) -> bool:
+    """True only when the matched row carries a DGDA DAR No."""
+    return bool(hit and str(hit.get("dar_no") or "").strip())
 
 
 def _close_spelling(first: str, second: str) -> bool:
@@ -70,6 +81,7 @@ def _reader_view(text: str, brands: list[dict]) -> dict:
         "display": (hit["brand"] if green_eligible else clean_display_name(raw)),
         "score": score,
         "green_eligible": green_eligible,
+        "dar_backed": _dar_backed(hit),
         "candidate": bool(hit and not green_eligible),
         "match_kind": hit["match_kind"] if hit else "none",
         "hit": hit,
@@ -100,8 +112,10 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
     both_confident = bool(first["brand"] and second["brand"])
     both_agree = both_confident and first["brand"] == second["brand"]
     min_match = min(first["score"], second["score"])
-    both_green_eligible = both_agree and min_match >= GREEN_SCORE
-    # An exact dual match is the only case where the CNN veto is set aside.
+    both_dar_backed = bool(first["dar_backed"] and second["dar_backed"])
+    both_green_eligible = both_agree and min_match >= GREEN_SCORE and both_dar_backed
+    # An exact dual match on a DAR-backed DGDA row is the only case where the
+    # CNN veto is set aside. A box-only identity never reaches GREEN.
     dual_exact = bool(both_green_eligible and min_match >= EXACT_MATCH_SCORE)
     one_confident = bool(first["brand"] or second["brand"]) and not both_confident
 
@@ -140,12 +154,19 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         if dual_exact and cnn_confident and names and cnn_row["brand"] not in names:
             # Honest disclosure: the CNN is out of distribution here, so its
             # guess is ignored rather than silently dropped from the UI.
-            reason = ("Two readers agree on an exact verified brand; "
+            reason = ("Two readers agree on an exact DGDA-registered brand; "
                       "CNN guess is outside its training set")
         else:
-            reason = "Two independent readers agree on a verified brand (score >= 95)"
+            reason = "Two independent readers agree on a DGDA-registered brand (score >= 95)"
         chosen = next(iter(names))
         generic = first["generic"] or second["generic"]
+    elif both_agree and min_match >= GREEN_SCORE and not both_dar_backed:
+        # Exact box-only identity (Napa/Fexo/Ace): useful to display, but it
+        # must never sit under a GREEN badge with "DGDA not matched" nearby.
+        colour = "YELLOW"
+        reason = BOX_ONLY_REASON
+        chosen = first["display"] or second["display"]
+        generic = None
     elif both_agree:
         # 85-94.9 is a fuzzy-only identity: never GREEN, and no generic is
         # asserted until a human confirms the spelling on the paper.
@@ -185,6 +206,7 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
                   first["hit"] or second["hit"])
     dgda_record = None
     if record_hit:
+        conflict = conflict_for(record_hit["brand"])
         dgda_record = {
             "brand": record_hit["brand"],
             "generic": record_hit["generic"],
@@ -197,8 +219,26 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
             "accessed_at": record_hit["accessed_at"],
             "score": record_hit["score"],
             "match_kind": record_hit["match_kind"],
-            "green_eligible": bool(record_hit["score"] >= GREEN_SCORE),
+            "green_eligible": bool(record_hit["score"] >= GREEN_SCORE
+                                   and _dar_backed(record_hit)),
+            "dar_backed": _dar_backed(record_hit),
+            "conflict_reason": str((conflict or {}).get("reason") or ""),
+            "conflict_generics": str((conflict or {}).get("dgda_generics") or ""),
         }
+
+    # Main view: a wrong/conflicting CNN guess is never printed as a reading.
+    # Its raw score stays available for the More info expander.
+    cnn_conflicts = bool(
+        cnn_brand and (
+            not names or cnn_row is None or cnn_row["brand"] not in names
+        )
+    )
+    if cnn_conflicts:
+        cnn_display = CNN_NOT_APPLICABLE
+    elif cnn_brand and cnn_conf >= low:
+        cnn_display = f"{cnn_brand} ({cnn_conf:.2f})"
+    else:
+        cnn_display = "not used for this line"
 
     return {
         "colour": colour,
@@ -207,6 +247,8 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         "generic": generic,
         "cnn_brand": cnn_brand,
         "cnn_confidence": round(cnn_conf, 3),
+        "cnn_display": cnn_display,
+        "cnn_conflicts": cnn_conflicts,
         "vlm_text": vlm_text,
         "vlm_guess": first["display"],
         "vlm_verified": first["brand"] if first["green_eligible"] else "",

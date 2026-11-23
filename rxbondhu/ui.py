@@ -522,24 +522,49 @@ def badge(colour: str) -> str:
     return f'<span class="rx-badge {css}">{label}</span>'
 
 
-def dgda_card_lines(record: dict | None) -> list[str]:
-    """Information-only DGDA provenance lines for the review side card.
+STATUS_LINES = {
+    "GREEN": "দুটি AI একমত",
+    "YELLOW": "আবার দেখুন",
+    "UNVERIFIED": "বক্স দেখে নিশ্চিত করুন",
+    "RED": "ফার্মাসিস্টকে জিজ্ঞাসা করুন",
+}
 
-    Deliberately neutral: it never says "approved", never gives price or dose
-    advice, and a missing DAR No stays UNVERIFIED rather than a claim about
-    regulatory status.
+
+def status_line(colour: str) -> str:
+    """Plain Bangla meaning under a confidence badge."""
+    return STATUS_LINES.get(str(colour or "").upper(), "ফার্মাসিস্টকে জিজ্ঞাসা করুন")
+
+
+def identity_provenance(record: dict | None) -> str:
+    """Short, honest identity note used on the review screen."""
+    record = record or {}
+    dar = str(record.get("dar_no") or "").strip()
+    source = str(record.get("source") or "").lower()
+    if dar:
+        return f"DGDA-registered (DAR No {dar})"
+    if "box" in source or "pharmacist" in source:
+        return "Verified by box check, not found in DGDA snapshot"
+    return "Not found in DGDA snapshot — check the box"
+
+
+def dgda_card_lines(record: dict | None) -> list[str]:
+    """Information-only identity lines for the review side card.
+
+    Never says "approved", never gives price or dose advice. A name without a
+    DAR No is UNVERIFIED/box-checked, never a claim about regulatory status.
     """
     if not record:
-        return ["DGDA export-এ এই নাম পাওয়া যায়নি — UNVERIFIED, বক্স চেক করুন।"]
+        return ["DGDA export-এ এই নাম পাওয়া যায়নি — UNVERIFIED, বক্স চেক করুন।",
+                "Identity only — not dose advice."]
 
     dar = str(record.get("dar_no") or "").strip()
     source = str(record.get("source") or "")
     if dar:
-        title = f"DGDA-registered medicine — DAR No {dar}"
+        title = f"DGDA-registered (DAR No {dar})"
     elif "box" in source.lower() or "pharmacist" in source.lower():
-        title = "Box / pharmacist checked — DGDA DAR not matched (conflict flagged)"
+        title = "Verified by box check, not found in DGDA snapshot"
     else:
-        title = "DGDA-registered medicine — DAR No not listed"
+        title = "Not found in DGDA snapshot — check the box"
 
     lines = [
         title,
@@ -551,8 +576,18 @@ def dgda_card_lines(record: dict | None) -> list[str]:
         f"উৎস: {source or '—'}",
         f"সংগৃহীত: {record.get('accessed_at') or '—'}",
     ]
+    reason = str(record.get("conflict_reason") or "").strip()
+    generics = str(record.get("conflict_generics") or "").strip()
+    if reason or generics:
+        detail = reason or "Conflicting generic identities in the DGDA export"
+        if generics:
+            detail += f" ({generics})"
+        lines.append(f"Conflict flagged: {detail}. Identity from box check only.")
+    if not dar and ("box" in source.lower() or "pharmacist" in source.lower()):
+        lines.append("Not found in DGDA snapshot — check the box with a pharmacist.")
     if not record.get("green_eligible") or record.get("match_kind") == "fuzzy":
         lines.append("Fuzzy name match — confirm on the paper; not a DGDA-confirmed identity.")
+    lines.append("Identity only — not dose advice.")
     return lines
 
 
@@ -576,11 +611,15 @@ def dgda_compact_lines(record: dict | None) -> list[str]:
         return ["Generic: —", "DAR No: —", "Strength: —", "Form: —",
                 "UNVERIFIED — check the box with a pharmacist."]
     dar = str(record.get("dar_no") or "").strip()
+    source = str(record.get("source") or "").lower()
+    box_only = not dar and ("box" in source or "pharmacist" in source)
     return [
         f"Generic: {record.get('generic') or '—'}",
-        f"DAR No: {dar or 'not matched — verify on box'}",
+        "DAR No: not found in DGDA snapshot" if box_only else f"DAR No: {dar or '—'}",
         f"Strength: {record.get('strength') or '—'}",
         f"Form: {record.get('form') or '—'}",
+        ("Verified by box check — identity only, not dose advice." if box_only
+         else "DGDA-registered identity only — not dose advice."),
     ]
 
 

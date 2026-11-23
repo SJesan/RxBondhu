@@ -108,6 +108,7 @@ def colour_badge(colour: str) -> str:
 
 def screen_1():
     ui.step_header(1, "১. ছবি দিন", "Upload a prescription photo or take one, then drag a box around the medicine lines only.")
+    st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
     st.caption("Made by Team Zero-Shot · solo build for CoU AI Hackathon 2026")
     loaded = st.session_state.pop("demo_loaded", None)
     if loaded:
@@ -206,6 +207,7 @@ def screen_1():
 
 def screen_2():
     ui.step_header(2, "২. দুই AI-র পড়া", "Compare with the paper — nothing becomes a schedule until you confirm.")
+    st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
     analysis = st.session_state.analysis
     if not analysis_is_current(analysis):
         if analysis:
@@ -245,12 +247,21 @@ def screen_2():
                 f"<b style='color:var(--rx-text);font-size:1.08rem;'>{safe_name}</b>",
                 unsafe_allow_html=True,
             )
-            right.caption(item["reason"])
-            confidence = float(item.get("cnn_confidence") or 0.0)
-            right.write(
-                f"CNN: `{item.get('cnn_brand') or '—'}` ({confidence:.2f}) · "
-                f"Reader 1: `{item.get('vlm_guess') or item.get('vlm_text') or '—'}` · "
-                f"Reader 2: `{item.get('vlm2_guess') or item.get('vlm2_text') or '—'}`"
+            right.markdown(
+                f"<div class='rx-status-line'>{escape(ui.status_line(item['colour']))}</div>"
+                f"<div class='rx-reason'>{escape(str(item['reason']))}</div>",
+                unsafe_allow_html=True,
+            )
+            cnn_display = escape(str(item.get("cnn_display") or "not used for this line"))
+            right.markdown(
+                "<div class='rx-readings'>"
+                f"<div><b>CNN:</b> {cnn_display}</div>"
+                f"<div><b>Reader 1:</b> "
+                f"{escape(str(item.get('vlm_guess') or item.get('vlm_text') or '—'))}</div>"
+                f"<div><b>Reader 2:</b> "
+                f"{escape(str(item.get('vlm2_guess') or item.get('vlm2_text') or '—'))}</div>"
+                "</div>",
+                unsafe_allow_html=True,
             )
             # Streamlit Cloud can hot-reload app.py while keeping an older
             # rxbondhu.ui in sys.modules. Never let a stale helper crash the
@@ -267,6 +278,17 @@ def screen_2():
                 compact_html = fallback_html
             card.markdown(compact_html, unsafe_allow_html=True)
             with card.expander("More info", expanded=False):
+                raw_cnn = str(item.get("cnn_brand") or "—")
+                raw_conf = float(item.get("cnn_confidence") or 0.0)
+                st.caption(
+                    f"CNN raw guess (word-crop model only): {raw_cnn} ({raw_conf:.2f})"
+                )
+                if item.get("cnn_conflicts"):
+                    st.caption(
+                        "This guess conflicts with the readers' verified brand, so it "
+                        "is not used as a reading. Our CNN has 78 training classes and "
+                        "was trained on clean word crops, not whole prescriptions."
+                    )
                 try:
                     full_html = ui.dgda_card_html(item.get("dgda_record"))
                 except (AttributeError, TypeError, ValueError):
@@ -315,6 +337,7 @@ def screen_2():
 
 def screen_3():
     ui.step_header(3, "৩. নিশ্চিত করুন ও সময়সূচি", "You confirm every line. Only then do we build the Bangla schedule.")
+    st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
     rows = st.session_state.confirmed or []
     if not confirmed_rows_are_current(rows):
         if rows:
@@ -325,7 +348,6 @@ def screen_3():
         else:
             st.warning("Nothing to review yet.")
         return
-    st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
 
     brands = load_brands()
     for row in rows:
@@ -347,7 +369,7 @@ def screen_3():
             name = str(row.get("name") or "").strip()
             if name and name != str(row.get("original_name") or ""):
                 exact = lookup_exact(name, brands)
-                if exact:
+                if exact and str(exact.get("dar_no") or "").strip():
                     row["generic"] = exact.get("generic") or row.get("generic") or ""
                     row["dgda_record"] = exact
                     row["colour"] = "GREEN"
@@ -355,19 +377,24 @@ def screen_3():
                         "Corrected by you to an exact DGDA-registered brand "
                         "— still confirm with the prescriber."
                     )
+                elif exact:
+                    row["generic"] = exact.get("generic") or row.get("generic") or ""
+                    row["dgda_record"] = exact
+                    row["colour"] = "YELLOW"
+                    row["reason"] = (
+                        "Verified by box check, not found in DGDA snapshot — confirm on paper."
+                    )
                 else:
                     row["colour"] = "UNVERIFIED"
                     row["reason"] = (
                         "Corrected by you; name not in the DGDA snapshot — check the box."
                     )
-            record = row.get("dgda_record") or {}
-            dar = str(record.get("dar_no") or "").strip()
-            provenance = (f"DGDA-registered · DAR {dar}" if dar
-                          else "DGDA DAR not matched — verify on the box")
+            provenance = ui.identity_provenance(row.get("dgda_record"))
             c3.markdown(
                 f"<div class='rx-review-badge'>{colour_badge(row['colour'])}"
                 f"<b style='color:var(--rx-text);font-size:0.95rem;'>"
                 f"{escape(str(row['generic'] or 'unknown'))}</b></div>"
+                f"<div class='rx-status-line'>{escape(ui.status_line(row['colour']))}</div>"
                 f"<div class='rx-review-meta'>{escape(provenance)}</div>",
                 unsafe_allow_html=True,
             )
@@ -384,7 +411,6 @@ def screen_3():
         if schedule["warnings"]:
             for warning in schedule["warnings"]:
                 st.warning(warning)
-        st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
         summary = bangla.summary_text(schedule)
         st.markdown("**Bangla summary**")
         st.markdown(
