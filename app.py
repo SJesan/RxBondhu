@@ -123,6 +123,16 @@ def multi_photo_screen():
     """
     st.subheader("প্রেসক্রিপশন ছবি / Prescription images")
     st.caption("বক্সে শুধু ওষুধের লাইন রাখুন — নাম, স্বাক্ষর বা তারিখ নয়।")
+    if st.button("Clear these prescriptions", key="multi_clear"):
+        st.session_state.multi_mode = False
+        st.session_state.sources = []
+        st.session_state.multi_analyses = []
+        st.session_state.confirmed = None
+        st.session_state.schedule = None
+        st.session_state.audio = None
+        st.session_state.multi_seen = None
+        st.session_state.multi_upload_seq += 1
+        st.rerun()
     sample = Path(__file__).resolve().parent / "assets" / "demo" / "crop_example.png"
     if sample.is_file():
         st.image(sample, width=150, caption="Cropping example")
@@ -287,8 +297,10 @@ def screen_1():
             st.session_state.multi_mode = True
             st.session_state.source = None
         else:
-            st.session_state.multi_mode = False
-            st.session_state.sources = []
+            # Streamlit prunes uploader widget state while screens 2/3 render.
+            # Keep the already-cropped sources so Back does not lose the
+            # prescriptions or the cached readings; Clear is explicit below.
+            pass
 
     if st.session_state.multi_mode:
         multi_photo_screen()
