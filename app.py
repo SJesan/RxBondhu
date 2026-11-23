@@ -17,7 +17,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rxbondhu import bangla, camera, multi, pipeline, recognizer, reminders, sharing, tts, ui, vlm  # noqa: E402
-from rxbondhu.lexicon import load_brands, lookup_exact, suggest_brands  # noqa: E402
+from rxbondhu.lexicon import load_brands, lookup_exact  # noqa: E402
 from rxbondhu.state_guard import (analysis_is_current, claim_read,  # noqa: E402
                                   confirmed_rows_are_current, release_read)
 
