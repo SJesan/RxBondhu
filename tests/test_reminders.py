@@ -34,7 +34,7 @@ class TestReminders(unittest.TestCase):
         result = make_ics(schedule, start_date=date(2026, 11, 24))
         self.assertEqual(len(result["events"]), 1)
         self.assertEqual(result["events"][0]["slot"], "night")
-        self.assertTrue(any("used 7" in w for w in result["warnings"]))
+        self.assertTrue(any("defaulting to 7 days" in w for w in result["warnings"]))
 
     def test_text_escaped(self):
         schedule = build_schedule([

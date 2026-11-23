@@ -207,6 +207,7 @@ def build_schedule(confirmed: list[dict]) -> dict:
             "generic": str(row.get("generic") or "").strip(),
             "dose": parsed,
             "colour": str(row.get("colour") or "GREEN").upper(),
+            "needs_confirm": bool(parsed.get("needs_confirm")) or not bool(parsed.get("ok")),
         })
 
     warnings = duplicate_warning(medicines)
@@ -215,6 +216,15 @@ def build_schedule(confirmed: list[dict]) -> dict:
         warnings.append("Some lines need confirmation — unknown brands are never auto-accepted. "
                         "Please verify them with your pharmacist/doctor.")
     for med in medicines:
+        if med.get("needs_confirm"):
+            warnings.append(f"{med['name']}: dose needs confirmation — please check with prescriber/pharmacist.")
         warnings.extend(med["dose"]["warnings"])
 
-    return {"medicines": medicines, "warnings": warnings}
+    # de-duplicate while preserving order
+    seen = set()
+    deduped = []
+    for w in warnings:
+        if w not in seen:
+            seen.add(w)
+            deduped.append(w)
+    return {"medicines": medicines, "warnings": deduped}

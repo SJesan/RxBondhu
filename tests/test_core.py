@@ -44,7 +44,35 @@ class TestDoseParser(unittest.TestCase):
     def test_unknown_warns(self):
         p = parse(ascii_unknown())
         self.assertEqual(p["times_per_day"], 0)
+        self.assertFalse(p["ok"])
+        self.assertTrue(p["needs_confirm"])
         self.assertTrue(p["warnings"])
+
+    def test_multi_digit_and_bangla_triplets(self):
+        p = parse("10+0+10 7 days")
+        self.assertEqual((p["morning"], p["noon"], p["night"]), (10, 0, 10))
+        self.assertTrue(p["ok"])
+        self.assertTrue(p["needs_confirm"])
+        self.assertEqual(p["days"], 7)
+        bn = parse("১০+০+১০")
+        self.assertEqual((bn["morning"], bn["noon"], bn["night"]), (10, 0, 10))
+        self.assertTrue(bn["needs_confirm"])
+
+    def test_half_and_four_slot_are_not_silently_misparsed(self):
+        half = parse("½+0+½")
+        self.assertFalse(half["ok"])
+        self.assertTrue(half["needs_confirm"])
+        four = parse("1+1+1+1")
+        self.assertFalse(four["ok"])
+        self.assertTrue(four["needs_confirm"])
+        self.assertEqual((four["morning"], four["noon"], four["night"]), (0, 0, 0))
+
+    def test_one_plus_zero_plus_one_with_days(self):
+        p = parse("1+0+1 10 days")
+        self.assertEqual((p["morning"], p["noon"], p["night"]), (1, 0, 1))
+        self.assertEqual(p["days"], 10)
+        self.assertTrue(p["ok"])
+        self.assertFalse(p["needs_confirm"])
 
     def test_bangla_summary(self):
         p = parse("1+0+1 5 দিন")

@@ -51,11 +51,15 @@ def make_ics(schedule: dict, start_date: date | None = None,
     day_prefix = start.strftime("%Y%m%d")
     for med_index, med in enumerate(schedule.get("medicines", [])):
         dose = med.get("dose") or {}
+        if not dose.get("ok", True) or dose.get("needs_confirm"):
+            warnings.append(
+                f"{med.get('name', 'Medicine')}: dose is unreadable/unusual — calendar reminder skipped until confirmed."
+            )
+            continue
         days = dose.get("days") or days_default
         if not dose.get("days"):
             warnings.append(
-                f"{med.get('name', 'Medicine')}: number of days was not read; "
-                f"used {days_default}. Please confirm."
+                f"{med.get('name', 'Medicine')}: number of days missing — defaulting to {days_default} days. Please confirm with prescriber/pharmacist."
             )
         name = str(med.get("name") or "Medicine").strip()
         for slot_index, slot in enumerate(("morning", "noon", "night")):

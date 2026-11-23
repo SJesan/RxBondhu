@@ -684,14 +684,32 @@ def screen_3():
             )
 
     if st.button("✅ Build my Bangla schedule", type="primary"):
-        chosen = [r for r in rows if not r["name"].startswith("—")]
-        st.session_state.schedule = pipeline.build_schedule(chosen)
-        if st.session_state.multi_mode:
-            # Existing duplicate-generic check already ran on the merged list;
-            # this only names the prescriptions so a cross-script repeat is seen.
-            st.session_state.schedule["warnings"].extend(
-                multi.cross_prescription_warning(chosen))
-        st.session_state.audio = None
+        chosen = []
+        needs_fix = []
+        for row in rows:
+            name = str(row.get("name") or "").strip()
+            if name.startswith("—") or not name:
+                continue
+            med = {
+                "name": name,
+                "generic": str(row.get("generic") or "").strip(),
+                "dose": str(row.get("dose") or ""),
+                "colour": str(row.get("colour") or "YELLOW"),
+            }
+            parsed = dose_parser.parse(med["dose"])
+            if parsed.get("needs_confirm") or not parsed.get("ok"):
+                needs_fix.append(name)
+            chosen.append(med)
+        if needs_fix:
+            st.warning("Please confirm/fix dose before scheduling: " + ", ".join(needs_fix[:6]) + ". Unusual/unreadable doses are not scheduled silently.")
+        else:
+            st.session_state.schedule = pipeline.build_schedule(chosen)
+            if st.session_state.multi_mode:
+                # Existing duplicate-generic check already ran on the merged list;
+                # this only names the prescriptions so a cross-script repeat is seen.
+                st.session_state.schedule["warnings"].extend(
+                    multi.cross_prescription_warning(chosen))
+            st.session_state.audio = None
 
     schedule = st.session_state.schedule
     if schedule:
@@ -725,6 +743,8 @@ def screen_3():
         first_day = st.date_input("First reminder date", value=date.today() + timedelta(days=1),
                                   key="first_day")
         reminder = reminders.make_ics(schedule, start_date=first_day)
+        for w in reminder.get("warnings") or []:
+            st.warning(w)
         ics_col, all_col = st.columns([1, 1])
         with ics_col:
             st.download_button(
@@ -752,7 +772,8 @@ def screen_3():
         for index, med in enumerate(schedule["medicines"]):
             if st.button(f"🔊 {med['name']}", key=f"med_audio_{index}"):
                 one = {"medicines": [med], "warnings": []}
-                path = os.path.join(tempfile.gettempdir(), f"rxbondhu_med_{index}.wav")
+                with tempfile.NamedTemporaryFile(prefix="rxbondhu_med_", suffix=".wav", delete=False) as fh:
+                    path = fh.name
                 result = tts.speak_bangla(bangla.summary_text(one), output=path)
                 if result["path"]:
                     st.audio(result["path"])
