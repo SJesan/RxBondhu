@@ -14,6 +14,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from rxbondhu import multi, pipeline  # noqa: E402
+from rxbondhu.safety import duplicate_warning  # noqa: E402
 
 
 def analysis(*names: str) -> dict:
@@ -140,6 +141,29 @@ class TestCropCache(unittest.TestCase):
         self.assertEqual(base, multi.crop_cache_key(source("white")["image"], (1, 2, 3, 4)))
         self.assertNotEqual(base, multi.crop_cache_key(source("black")["image"], (1, 2, 3, 4)))
         self.assertNotEqual(base, multi.crop_cache_key(source("white")["image"], (1, 2, 3, 5)))
+
+
+class TestConfirmedOnlyMerge(unittest.TestCase):
+    def test_skipped_lines_never_reach_the_merged_schedule(self):
+        merged = [
+            {"name": "Pantonix", "generic": "Pantoprazole", "dose": "1+0+1",
+             "colour": "GREEN", "prescription": 1},
+            {"name": "— skip this line —", "generic": "", "dose": "",
+             "colour": "UNVERIFIED", "prescription": 2},
+            {"name": "Seclo", "generic": "Pantoprazole", "dose": "OD",
+             "colour": "GREEN", "prescription": 2},
+        ]
+        chosen = [row for row in merged if not row["name"].startswith("—")]
+        schedule = pipeline.build_schedule(chosen)
+        self.assertEqual(len(schedule["medicines"]), 2)
+        self.assertTrue(any("Duplicate generic" in warning
+                            for warning in schedule["warnings"]))
+        self.assertTrue(any("Duplicate generic" in warning
+                            for warning in duplicate_warning(schedule["medicines"])))
+        warnings = multi.cross_prescription_warning(chosen)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Prescription 1 ও 2", warnings[0])
+        self.assertFalse(any("skip" in warning for warning in warnings))
 
 
 class TestSingleImageUnchanged(unittest.TestCase):

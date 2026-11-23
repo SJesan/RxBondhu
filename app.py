@@ -344,25 +344,11 @@ def screen_1():
                 release_read(st.session_state)
 
 
-def screen_2():
-    ui.step_header(2, "২. দুই AI-র পড়া", "Compare with the paper — nothing becomes a schedule until you confirm.")
-    st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
-    analysis = st.session_state.analysis
-    if not analysis_is_current(analysis):
-        if analysis:
-            # An older app version stored word-level results in this session.
-            st.error("This reading came from an older version of RxBondhu. "
-                     "Please read the photo again — no data is lost.")
-            if st.button("← Back to photo and re-read"):
-                reset_reading()
-        else:
-            st.warning("Go back to Step 1 and read a photo first.")
-        return
-
+def _render_status(analysis):
+    """One short status strip and honest reader-failure notes (shared)."""
     cnn_ok = bool(analysis.get("cnn_available"))
     vlm_error = analysis.get("vlm_error") or ""
     second_error = analysis.get("vlm2_error") or ""
-    # One short status strip replaces the old four metrics and legend block.
     status = (
         f"<span class='rx-chip'>{analysis.get('line_count', len(analysis['items']))} lines</span>"
         f"<span class='rx-chip {'rx-chip-good' if cnn_ok else 'rx-chip-warn'}'>"
@@ -385,6 +371,130 @@ def screen_2():
             "— continuing with Reader 1 and CNN. No reading is invented; "
             "single-reader lines are capped at YELLOW."
         )
+
+
+def _render_item_card(item, form_key, persist, label=None):
+    """The exact single-image card, reused per prescription with a unique key."""
+    with st.container(border=True):
+        if label:
+            st.caption(label)
+        right, card = st.columns([3, 2])
+        safe_name = escape(str(item.get("name") or "(unreadable)"))
+        right.markdown(
+            f"{colour_badge(item['colour'])} "
+            f"<b style='color:var(--rx-text);font-size:1.08rem;'>{safe_name}</b>",
+            unsafe_allow_html=True,
+        )
+        right.markdown(
+            f"<div class='rx-status-line'>{escape(ui.status_line(item['colour']))}</div>"
+            f"<div class='rx-reason'>{escape(str(item['reason']))}</div>",
+            unsafe_allow_html=True,
+        )
+        cnn_display = escape(str(item.get("cnn_display") or "not used for this line"))
+        right.markdown(
+            "<div class='rx-readings'>"
+            f"<div><b>CNN:</b> {cnn_display}</div>"
+            f"<div><b>Reader 1:</b> "
+            f"{escape(str(item.get('vlm_guess') or item.get('vlm_text') or '—'))}</div>"
+            f"<div><b>Reader 2:</b> "
+            f"{escape(str(item.get('vlm2_guess') or item.get('vlm2_text') or '—'))}</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        # Streamlit Cloud can hot-reload app.py while keeping an older
+        # rxbondhu.ui in sys.modules. Never let a stale helper crash the
+        # review screen: show a neutral card until the app is rebooted.
+        fallback_html = (
+            "<div style='background:var(--rx-surface-alt);border:1px solid var(--rx-border);"
+            "border-radius:14px;padding:10px 12px;'>"
+            "<b style='color:var(--rx-text);'>DGDA তথ্য</b><br>"
+            "এই সেশনে DGDA তথ্য দেখা যাচ্ছে না — ছবিটি আবার পড়ুন।</div>"
+        )
+        try:
+            compact_html = ui.dgda_compact_html(item.get("dgda_record"))
+        except (AttributeError, TypeError, ValueError):
+            compact_html = fallback_html
+        card.markdown(compact_html, unsafe_allow_html=True)
+        with card.expander("More info", expanded=False):
+            raw_cnn = str(item.get("cnn_brand") or "—")
+            raw_conf = float(item.get("cnn_confidence") or 0.0)
+            st.caption(
+                f"CNN raw guess (word-crop model only): {raw_cnn} ({raw_conf:.2f})"
+            )
+            if item.get("cnn_conflicts"):
+                st.caption(
+                    "This guess conflicts with the readers' verified brand, so it "
+                    "is not used as a reading. Our CNN has 78 training classes and "
+                    "was trained on clean word crops, not whole prescriptions."
+                )
+            try:
+                full_html = ui.dgda_card_html(item.get("dgda_record"))
+            except (AttributeError, TypeError, ValueError):
+                full_html = fallback_html
+            st.markdown(full_html, unsafe_allow_html=True)
+        # A real form button keeps the current reading in session state;
+        # its dedicated test id also lets CSS give it a danger style.
+        with right.form(form_key):
+            if st.form_submit_button("Not sure?"):
+                item["colour"] = "RED"
+                item["reason"] = (
+                    str(item.get("reason") or "") + " User flagged this line as wrong."
+                ).strip()
+                persist()
+                st.rerun()
+
+
+def _rows_from_items(items, prescription=None):
+    """Review rows. Single-image rows are byte-for-byte the old shape."""
+    rows = []
+    for item in items:
+        options = [s["brand"] for s in item["suggestions"]]
+        if item["name"] and item["name"] not in options:
+            options.insert(0, item["name"])
+        options.append("— skip this line —")
+        unverified = str(item["colour"]).upper() == "UNVERIFIED"
+        if unverified:
+            options = [item["name"] or "— skip this line —", "— skip this line —"]
+        index = item["index"]
+        if prescription is not None:
+            index = prescription * 100 + int(index)
+        row = {
+            "index": index,
+            "name": options[0] if options else "— skip this line —",
+            "original_name": item["name"] or "",
+            "options": options,
+            "dose": item["dose_text"],
+            "generic": item["generic"] or "",
+            "colour": item["colour"],
+            "editable": unverified,
+            "raw_reading": item.get("vlm_guess") or item.get("vlm2_guess") or "",
+            "dgda_record": item.get("dgda_record"),
+        }
+        if prescription is not None:
+            row["prescription"] = prescription
+        rows.append(row)
+    return rows
+
+
+def screen_2():
+    ui.step_header(2, "২. দুই AI-র পড়া", "Compare with the paper — nothing becomes a schedule until you confirm.")
+    st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
+    if st.session_state.multi_mode:
+        _screen_2_multi()
+        return
+    analysis = st.session_state.analysis
+    if not analysis_is_current(analysis):
+        if analysis:
+            # An older app version stored word-level results in this session.
+            st.error("This reading came from an older version of RxBondhu. "
+                     "Please read the photo again — no data is lost.")
+            if st.button("← Back to photo and re-read"):
+                reset_reading()
+        else:
+            st.warning("Go back to Step 1 and read a photo first.")
+        return
+
+    _render_status(analysis)
     if not analysis["items"]:
         st.info("কিছু পাওয়া যায়নি — ওষুধের লাইনের চারপাশে টাইট ক্রপ করে আবার চেষ্টা করুন। "
                 "Nothing found — try a tighter crop around the medicine lines.")
@@ -393,94 +503,46 @@ def screen_2():
             st.rerun()
         return
     for item in analysis["items"]:
-        with st.container(border=True):
-            right, card = st.columns([3, 2])
-            safe_name = escape(str(item.get("name") or "(unreadable)"))
-            right.markdown(
-                f"{colour_badge(item['colour'])} "
-                f"<b style='color:var(--rx-text);font-size:1.08rem;'>{safe_name}</b>",
-                unsafe_allow_html=True,
-            )
-            right.markdown(
-                f"<div class='rx-status-line'>{escape(ui.status_line(item['colour']))}</div>"
-                f"<div class='rx-reason'>{escape(str(item['reason']))}</div>",
-                unsafe_allow_html=True,
-            )
-            cnn_display = escape(str(item.get("cnn_display") or "not used for this line"))
-            right.markdown(
-                "<div class='rx-readings'>"
-                f"<div><b>CNN:</b> {cnn_display}</div>"
-                f"<div><b>Reader 1:</b> "
-                f"{escape(str(item.get('vlm_guess') or item.get('vlm_text') or '—'))}</div>"
-                f"<div><b>Reader 2:</b> "
-                f"{escape(str(item.get('vlm2_guess') or item.get('vlm2_text') or '—'))}</div>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-            # Streamlit Cloud can hot-reload app.py while keeping an older
-            # rxbondhu.ui in sys.modules. Never let a stale helper crash the
-            # review screen: show a neutral card until the app is rebooted.
-            fallback_html = (
-                "<div style='background:var(--rx-surface-alt);border:1px solid var(--rx-border);"
-                "border-radius:14px;padding:10px 12px;'>"
-                "<b style='color:var(--rx-text);'>DGDA তথ্য</b><br>"
-                "এই সেশনে DGDA তথ্য দেখা যাচ্ছে না — ছবিটি আবার পড়ুন।</div>"
-            )
-            try:
-                compact_html = ui.dgda_compact_html(item.get("dgda_record"))
-            except (AttributeError, TypeError, ValueError):
-                compact_html = fallback_html
-            card.markdown(compact_html, unsafe_allow_html=True)
-            with card.expander("More info", expanded=False):
-                raw_cnn = str(item.get("cnn_brand") or "—")
-                raw_conf = float(item.get("cnn_confidence") or 0.0)
-                st.caption(
-                    f"CNN raw guess (word-crop model only): {raw_cnn} ({raw_conf:.2f})"
-                )
-                if item.get("cnn_conflicts"):
-                    st.caption(
-                        "This guess conflicts with the readers' verified brand, so it "
-                        "is not used as a reading. Our CNN has 78 training classes and "
-                        "was trained on clean word crops, not whole prescriptions."
-                    )
-                try:
-                    full_html = ui.dgda_card_html(item.get("dgda_record"))
-                except (AttributeError, TypeError, ValueError):
-                    full_html = fallback_html
-                st.markdown(full_html, unsafe_allow_html=True)
-            # A real form button keeps the current reading in session state;
-            # its dedicated test id also lets CSS give it a danger style.
-            with right.form(f"wrong_{item['index']}"):
-                if st.form_submit_button("Not sure?"):
-                    item["colour"] = "RED"
-                    item["reason"] = (
-                        str(item.get("reason") or "") + " User flagged this line as wrong."
-                    ).strip()
-                    st.session_state.analysis = analysis
-                    st.rerun()
+        persist = lambda: st.session_state.update(analysis=analysis)
+        _render_item_card(item, f"wrong_{item['index']}", persist)
     if st.button("✏️ Confirm / correct each line →", type="primary"):
-        brands = load_brands()
+        st.session_state.confirmed = _rows_from_items(analysis["items"])
+        st.session_state.page = 3
+        st.rerun()
+    if st.button("← Back to photo"):
+        st.session_state.page = 1
+        st.rerun()
+
+
+def _screen_2_multi():
+    """Review each prescription separately; nothing is merged yet."""
+    groups = st.session_state.multi_analyses or []
+    if not groups:
+        st.warning("Go back to Step 1 and read the photos first.")
+        if st.button("← Back to photo"):
+            st.session_state.page = 1
+            st.rerun()
+        return
+
+    for group in groups:
+        number = group["number"]
+        st.subheader(f"প্রেসক্রিপশন {bangla.digits(number)} / Prescription {number}")
+        if group.get("error"):
+            st.warning(group["error"])
+        if group.get("analysis"):
+            _render_status(group["analysis"])
+        for line, item in enumerate(group["items"], start=1):
+            persist = lambda: st.session_state.update(
+                multi_analyses=st.session_state.multi_analyses)
+            _render_item_card(
+                item, f"wrong_m{number}_{item['index']}", persist,
+                label=f"Prescription {number} · line {line}",
+            )
+
+    if st.button("✏️ Confirm / correct each line →", type="primary"):
         rows = []
-        for item in analysis["items"]:
-            options = [s["brand"] for s in item["suggestions"]]
-            if item["name"] and item["name"] not in options:
-                options.insert(0, item["name"])
-            options.append("— skip this line —")
-            unverified = str(item["colour"]).upper() == "UNVERIFIED"
-            if unverified:
-                options = [item["name"] or "— skip this line —", "— skip this line —"]
-            rows.append({
-                "index": item["index"],
-                "name": options[0] if options else "— skip this line —",
-                "original_name": item["name"] or "",
-                "options": options,
-                "dose": item["dose_text"],
-                "generic": item["generic"] or "",
-                "colour": item["colour"],
-                "editable": unverified,
-                "raw_reading": item.get("vlm_guess") or item.get("vlm2_guess") or "",
-                "dgda_record": item.get("dgda_record"),
-            })
+        for group in groups:
+            rows.extend(_rows_from_items(group["items"], prescription=group["number"]))
         st.session_state.confirmed = rows
         st.session_state.page = 3
         st.rerun()
@@ -492,6 +554,10 @@ def screen_2():
 def screen_3():
     ui.step_header(3, "৩. নিশ্চিত করুন ও সময়সূচি", "You confirm every line. Only then do we build the Bangla schedule.")
     st.markdown(DEMO_DISCLAIMER, unsafe_allow_html=True)
+    if st.session_state.multi_mode:
+        chosen_now = [row for row in (st.session_state.confirmed or [])
+                      if not str(row.get("name") or "").startswith("—")]
+        st.caption(multi.count_text(len(st.session_state.sources), len(chosen_now)))
     rows = st.session_state.confirmed or []
     if not confirmed_rows_are_current(rows):
         if rows:
@@ -504,7 +570,12 @@ def screen_3():
         return
 
     brands = load_brands()
+    last_prescription = None
     for row in rows:
+        number = row.get("prescription")
+        if number is not None and number != last_prescription:
+            st.markdown(f"**প্রেসক্রিপশন {bangla.digits(number)} / Prescription {number}**")
+            last_prescription = number
         with st.container(border=True):
             c1, c2, c3 = st.columns([3, 3, 2], gap="small")
             if row.get("editable"):
@@ -556,6 +627,11 @@ def screen_3():
     if st.button("✅ Build my Bangla schedule", type="primary"):
         chosen = [r for r in rows if not r["name"].startswith("—")]
         st.session_state.schedule = pipeline.build_schedule(chosen)
+        if st.session_state.multi_mode:
+            # Existing duplicate-generic check already ran on the merged list;
+            # this only names the prescriptions so a cross-script repeat is seen.
+            st.session_state.schedule["warnings"].extend(
+                multi.cross_prescription_warning(chosen))
         st.session_state.audio = None
 
     schedule = st.session_state.schedule
