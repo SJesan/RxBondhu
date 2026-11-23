@@ -96,6 +96,29 @@ class TestCnnDisplay(unittest.TestCase):
         self.assertFalse(result["cnn_conflicts"])
 
 
+class TestThreeSignalAndDgdaSafety(unittest.TestCase):
+    def setUp(self):
+        self.brands = load_brands()
+
+    def test_strong_three_signal_never_upgrades_to_green(self):
+        # All three signals point to a non-DGDA/exact-unverified name: keep it YELLOW.
+        result = fusion.fuse(
+            {"brand": "Maxpro", "confidence": 0.92}, "Maxpo", self.brands,
+            second_vlm_text="Maxpo",
+        )
+        self.assertEqual(result["colour"], "YELLOW")
+        self.assertIsNotNone(result.get("strong_signal"))
+        self.assertIn("strong 3-signal", result["reason"].lower())
+        self.assertNotEqual(result["colour"], "GREEN")
+
+    def test_not_in_dgda_does_not_show_suggested_dar_record(self):
+        # RAZENTUS is not in DGDA; Relentus is only a suggestion.
+        result = fusion.fuse(None, "RAZENTUS", self.brands, second_vlm_text="RAZENTUS")
+        self.assertFalse(result.get("in_dgda"))
+        self.assertIsNone(result.get("dgda_record"))
+        self.assertTrue(any(s.get("brand") == "Relentus" for s in result.get("suggestions", [])))
+
+
 class TestWording(unittest.TestCase):
     def test_status_lines_are_plain_bangla(self):
         self.assertEqual(ui.status_line("GREEN"), "দুটি AI একমত")

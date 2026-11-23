@@ -11,7 +11,7 @@ prevents a full-page photo from producing 30 meaningless ``Az`` rows.
 
 from .dose_parser import parse
 from .fusion import fuse
-from .safety import duplicate_warning, has_unconfirmed
+from .safety import duplicate_warning, has_unconfirmed, same_dose_warning
 
 MAX_LINES = 12
 
@@ -210,9 +210,10 @@ def build_schedule(confirmed: list[dict]) -> dict:
         })
 
     warnings = duplicate_warning(medicines)
+    warnings.extend(same_dose_warning(medicines))
     if has_unconfirmed(confirmed or []):
         warnings.append("Some lines need confirmation — unknown brands are never auto-accepted. "
-                        "Please verify them with your pharmacist.")
+                        "Please verify them with your pharmacist/doctor.")
     for med in medicines:
         warnings.extend(med["dose"]["warnings"])
 

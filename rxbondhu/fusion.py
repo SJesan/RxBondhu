@@ -18,7 +18,7 @@ import os
 import re
 from difflib import SequenceMatcher
 
-from .lexicon import (GREEN_SCORE, conflict_for, load_brands, lookup_exact,
+from .lexicon import (GREEN_SCORE, brand_key, conflict_for, load_brands, lookup_exact,
                       match_brand, normalise_name, suggest_brands, verify_name)
 
 CNN_CONFIDENT = 0.60
@@ -32,6 +32,7 @@ VLM_SCORE = int(os.getenv("RX_VLM_SCORE", "90"))
 # Only a perfect normalised match from BOTH readers can override a confident
 # CNN guess. Near-exact (95-99) dual matches keep the veto.
 EXACT_MATCH_SCORE = 100
+STRONG_SIGNAL_SCORE = 90
 BOX_ONLY_REASON = "Verified by box check, not found in DGDA snapshot — confirm on paper"
 CNN_NOT_APPLICABLE = "not applicable to this name"
 
@@ -46,6 +47,42 @@ def _close_spelling(first: str, second: str) -> bool:
     if not first or not second:
         return False
     return SequenceMatcher(None, first.casefold(), second.casefold()).ratio() >= 0.6
+
+
+def _similarity(a: str, b: str) -> float:
+    a_key, b_key = brand_key(a), brand_key(b)
+    if not a_key or not b_key:
+        return 0.0
+    return SequenceMatcher(None, a_key, b_key).ratio() * 100.0
+
+
+def _strong_three_signal(first: dict, second: dict, cnn_brand: str, cnn_conf: float, brands: list[dict]) -> dict | None:
+    """True when Reader1+Reader2+CNN point to same normalized brand >=90%.
+
+    This is a confidence/suggestion signal only. It must never upgrade a result
+    to GREEN unless the strict GREEN rule already passes elsewhere.
+    """
+    if not (first.get("brand") and second.get("brand") and cnn_brand):
+        return None
+    if cnn_conf < CNN_CONFIDENT:
+        return None
+    r1, r2, c = brand_key(first.get("brand")), brand_key(second.get("brand")), brand_key(cnn_brand)
+    if not r1 or not r2 or not c:
+        return None
+    s12 = _similarity(r1, r2)
+    s1c = _similarity(r1, c)
+    s2c = _similarity(r2, c)
+    if min(s12, s1c, s2c) < STRONG_SIGNAL_SCORE:
+        return None
+    # Prefer canonical DGDA/box-checked brand if present.
+    hit = lookup_exact(first.get("brand"), brands) or lookup_exact(second.get("brand"), brands) or lookup_exact(cnn_brand, brands)
+    canonical = hit["brand"] if hit else (first.get("brand") or second.get("brand") or cnn_brand)
+    return {
+        "brand": canonical,
+        "score": round(min(s12, s1c, s2c), 1),
+        "reader1": round(s12, 1),
+        "reader_cnn": round(min(s1c, s2c), 1),
+    }
 
 
 def clean_display_name(text: str) -> str:
@@ -122,6 +159,7 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
     cnn_contradiction = bool(
         cnn_confident and names and cnn_row["brand"] not in names and not dual_exact
     )
+    strong_signal = _strong_three_signal(first, second, cnn_brand, cnn_conf, brands)
 
     # An exact dual agreement on a box/pharmacist-only row (no DGDA DAR No) is
     # capped at YELLOW with honest box-check wording. An out-of-distribution
@@ -183,11 +221,18 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
             reason = "Two independent readers agree on a DGDA-registered brand (score >= 95)"
         chosen = next(iter(names))
         generic = first["generic"] or second["generic"]
+        if strong_signal:
+            reason += f" · strong 3-signal match ({strong_signal['score']:.0f}%)"
     elif both_agree:
         # 85-94.9 is a fuzzy-only identity: never GREEN, and no generic is
         # asserted until a human confirms the spelling on the paper.
         colour = "YELLOW"
         reason = "Readers agree, but the brand match is fuzzy-only — confirm on paper"
+        if strong_signal:
+            reason = (
+                f"Strong 3-signal match ({strong_signal['score']:.0f}%) but brand match is fuzzy-only "
+                "— confirm on paper (not GREEN)"
+            )
         chosen = first["display"] or second["display"]
         generic = None
     elif one_confident:
@@ -225,12 +270,19 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
             chosen, generic = "", None
 
     # Verify readable name against DGDA snapshot and suggest right names.
-    verify_target = vlm_text or second_vlm_text or cnn_brand or chosen or ""
+    verify_target = chosen or vlm_text or second_vlm_text or cnn_brand or ""
     verification = verify_name(verify_target, brands)
     suggestions = verification.get("suggestions") or suggest_brands(verify_target, brands, n=3)
     if not readable and colour != "GREEN" and suggestions:
         # Don't guess; only surface suggestions when there is no readable line.
         chosen = str(chosen or "").strip()
+
+    # Strong 3-signal is useful context but never a GREEN override.
+    if strong_signal and colour != "GREEN":
+        if "strong 3-signal match" not in reason.lower():
+            reason += f" · strong 3-signal match ({strong_signal['score']:.0f}%)"
+        if not verification.get("in_dgda"):
+            reason += " · not in DGDA snapshot; confirm with pharmacist/doctor"
 
     # The side card shows provenance only. A fuzzy hit is labelled as such and
     # never presented as a confirmed DGDA identity.
@@ -238,7 +290,30 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
                   second["hit"] if second["green_eligible"] else
                   first["hit"] or second["hit"])
     dgda_record = None
-    if record_hit:
+    # Only show a DGDA record when the chosen/verified name is actually in DGDA,
+    # or when readers produced a real record hit. Do not show a suggested record
+    # for an unverified typed/read name (RAZENTUS bug).
+    if verification.get("in_dgda") and verification.get("record"):
+        rec = verification["record"]
+        conflict = verification.get("conflict") or conflict_for(rec.get("brand") or "")
+        dgda_record = {
+            "brand": rec.get("brand"),
+            "generic": rec.get("generic"),
+            "strength": rec.get("strength", ""),
+            "form": rec.get("form", ""),
+            "company": rec.get("company", ""),
+            "dar_no": rec.get("dar_no", ""),
+            "source": rec.get("source", ""),
+            "source_url": rec.get("source_url", ""),
+            "accessed_at": rec.get("accessed_at", ""),
+            "score": verification.get("score", rec.get("score", 0)),
+            "match_kind": "exact" if verification.get("exact") else rec.get("match_kind", "fuzzy"),
+            "green_eligible": bool(verification.get("exact") and verification.get("dar_backed")),
+            "dar_backed": bool(str(rec.get("dar_no") or "").strip()),
+            "conflict_reason": str((conflict or {}).get("reason") or ""),
+            "conflict_generics": str((conflict or {}).get("dgda_generics") or ""),
+        }
+    elif record_hit and verification.get("exact"):
         conflict = conflict_for(record_hit["brand"])
         dgda_record = {
             "brand": record_hit["brand"],
@@ -257,25 +332,6 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
             "dar_backed": _dar_backed(record_hit),
             "conflict_reason": str((conflict or {}).get("reason") or ""),
             "conflict_generics": str((conflict or {}).get("dgda_generics") or ""),
-        }
-    elif verification.get("record"):
-        rec = verification["record"]
-        dgda_record = {
-            "brand": rec.get("brand"),
-            "generic": rec.get("generic"),
-            "strength": rec.get("strength", ""),
-            "form": rec.get("form", ""),
-            "company": rec.get("company", ""),
-            "dar_no": rec.get("dar_no", ""),
-            "source": rec.get("source", ""),
-            "source_url": rec.get("source_url", ""),
-            "accessed_at": rec.get("accessed_at", ""),
-            "score": verification.get("score", rec.get("score", 0)),
-            "match_kind": rec.get("match_kind", "fuzzy"),
-            "green_eligible": bool(verification.get("dar_backed")),
-            "dar_backed": bool(verification.get("dar_backed")),
-            "conflict_reason": str((verification.get("conflict") or {}).get("reason") or ""),
-            "conflict_generics": str((verification.get("conflict") or {}).get("dgda_generics") or ""),
         }
 
     # Main view: a wrong/conflicting CNN guess is never printed as a reading.
@@ -312,6 +368,9 @@ def fuse(cnn: dict | None = None, vlm_text: str = "", brands: list[dict] | None 
         "min_match_score": min_match,
         "green_score": GREEN_SCORE,
         "dgda_record": dgda_record,
+        "dgda_status": verification.get("status"),
+        "in_dgda": bool(verification.get("in_dgda")),
+        "strong_signal": strong_signal,
         "agreement": ("agree" if both_agree else
                       "disagree" if both_confident else
                       "one-reader" if one_confident else "unverified"),

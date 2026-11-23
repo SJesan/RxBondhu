@@ -358,9 +358,12 @@ def _closest_hint_html(item):
             f"<span style='color:var(--rx-text);font-weight:700;'>{hint_names}</span>"
             " <span style='color:var(--rx-muted);'>(suggestion only)</span>"
         )
+    confirm_note = ""
+    if colour != "GREEN":
+        confirm_note = " · If not confirmed, ask pharmacist/doctor."
     return (
         f"<div style='color:var(--rx-muted);font-size:0.85rem;margin-top:4px;'>"
-        f"{escape(status)}{hint}</div>"
+        f"{escape(status)}{hint}{escape(confirm_note)}</div>"
     )
 
 
@@ -665,14 +668,18 @@ def screen_3():
                 if v.get("in_dgda") and v.get("record"):
                     row["dgda_record"] = row.get("dgda_record") or v.get("record")
 
-            provenance = ui.identity_provenance(row.get("dgda_record"))
+            # Only show DGDA provenance when the current name is actually in DGDA.
+            record_for_display = row.get("dgda_record") if (v and v.get("in_dgda")) else None
+            provenance = ui.identity_provenance(record_for_display)
             in_list = "In DGDA" if (v and v.get("in_dgda")) else "Not in DGDA"
+            confirm_note = "If not confirmed, ask pharmacist/doctor." if row.get("colour") != "GREEN" else ""
             c3.markdown(
                 f"<div class='rx-review-badge'>{colour_badge(row['colour'])}"
                 f"<b style='color:var(--rx-text);font-size:0.95rem;'>"
                 f"{escape(str(row['generic'] or 'unknown'))}</b></div>"
                 f"<div class='rx-status-line'>{escape(ui.status_line(row['colour']))} · {escape(in_list)}</div>"
-                f"<div class='rx-review-meta'>{escape(provenance)}</div>",
+                f"<div class='rx-review-meta'>{escape(provenance)}</div>"
+                + (f"<div class='rx-review-meta'>{escape(confirm_note)}</div>" if confirm_note else ""),
                 unsafe_allow_html=True,
             )
 

@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rxbondhu.dose_parser import parse, to_bangla_summary  # noqa: E402
 from rxbondhu.lexicon import load_brands, match_brand, normalise_name, suggest_brands  # noqa: E402
-from rxbondhu.safety import duplicate_warning, generic_key, has_red  # noqa: E402
+from rxbondhu.safety import duplicate_warning, generic_key, has_red, same_dose_warning  # noqa: E402
 from rxbondhu.fusion import clean_display_name, fuse  # noqa: E402
 
 
@@ -271,6 +271,22 @@ class TestSafety(unittest.TestCase):
             {"name": "Maxpro", "generic": "Esomeprazole"},
         ]
         self.assertEqual(duplicate_warning(meds), [])
+
+    def test_same_medicine_same_dose_warns(self):
+        meds = [
+            {"name": "Napa", "generic": "Paracetamol", "dose": "1+0+1"},
+            {"name": "Napa", "generic": "Paracetamol", "dose": "1+0+1"},
+        ]
+        warnings = same_dose_warning(meds)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Same medicine/dose repeated", warnings[0])
+
+    def test_same_medicine_different_dose_no_same_dose_warning(self):
+        meds = [
+            {"name": "Napa", "generic": "Paracetamol", "dose": "1+0+1"},
+            {"name": "Napa", "generic": "Paracetamol", "dose": "1+1+1"},
+        ]
+        self.assertEqual(same_dose_warning(meds), [])
 
     def test_has_red(self):
         self.assertTrue(has_red([{"colour": "RED"}]))
