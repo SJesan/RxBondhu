@@ -16,7 +16,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from rxbondhu import bangla, camera, dose_parser, multi, pipeline, recognizer, reminders, sharing, tts, ui, vlm  # noqa: E402
+from rxbondhu import bangla, camera, dose_parser, multi, pipeline, recognizer, reminders, safety, sharing, tts, ui, vlm  # noqa: E402
 from rxbondhu.lexicon import load_brands, lookup_exact, verify_name  # noqa: E402
 from rxbondhu.state_guard import (analysis_is_current, claim_read,  # noqa: E402
                                   confirmed_rows_are_current, release_read)
@@ -682,6 +682,24 @@ def screen_3():
                 + (f"<div class='rx-review-meta'>{escape(confirm_note)}</div>" if confirm_note else ""),
                 unsafe_allow_html=True,
             )
+
+    preview_meds = []
+    for row in rows:
+        name = str(row.get("name") or "").strip()
+        if name.startswith("—") or not name:
+            continue
+        preview_meds.append({
+            "name": name,
+            "generic": str(row.get("generic") or "").strip(),
+            "dose": str(row.get("dose") or ""),
+            "colour": str(row.get("colour") or "YELLOW"),
+        })
+    preview_warnings = safety.duplicate_warning(preview_meds)
+    preview_warnings.extend(safety.same_dose_warning(preview_meds))
+    if preview_warnings:
+        st.markdown("**Before scheduling checks**")
+        for warning in preview_warnings:
+            st.warning(warning)
 
     if st.button("✅ Build my Bangla schedule", type="primary"):
         chosen = []
