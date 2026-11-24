@@ -699,7 +699,10 @@ def screen_3():
     if preview_warnings:
         st.markdown("**Before scheduling checks**")
         for warning in preview_warnings:
-            st.warning(warning)
+            if ui.is_duplicate_generic_warning(warning):
+                st.markdown(ui.duplicate_warning_html(warning), unsafe_allow_html=True)
+            else:
+                st.warning(warning)
 
     if st.button("✅ Build my Bangla schedule", type="primary"):
         chosen = []
@@ -738,7 +741,10 @@ def screen_3():
         )
         if schedule["warnings"]:
             for warning in schedule["warnings"]:
-                st.warning(warning)
+                if ui.is_duplicate_generic_warning(warning):
+                    st.markdown(ui.duplicate_warning_html(warning), unsafe_allow_html=True)
+                else:
+                    st.warning(warning)
         summary = bangla.summary_text(schedule)
         st.markdown("**Bangla summary**")
         st.markdown(

@@ -51,6 +51,9 @@ THEMES = {
         "badge_unv_bg": "#EEF4FA",
         "badge_unv_fg": "#26547A",
         "badge_unv_bd": "#C6DCEC",
+        "dup_bg": "#FDECEC",
+        "dup_text": "#8B1A1A",
+        "dup_border": "#D93025",
     },
     "dark": {
         "bg": "#08130D",
@@ -90,6 +93,9 @@ THEMES = {
         "badge_unv_bg": "#152B3A",
         "badge_unv_fg": "#9CCDF0",
         "badge_unv_bd": "#315A75",
+        "dup_bg": "#3A1515",
+        "dup_text": "#FFB4B4",
+        "dup_border": "#FF6B6B",
     },
 }
 
@@ -328,6 +334,18 @@ div[data-testid="stForm"] button:hover {
 .rx-review-badge { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .rx-review-meta { font-size:0.9rem; color:var(--rx-text); margin-top:6px; }
 .rx-status-line { font-size:1.05rem; font-weight:800; color:var(--rx-text); margin-top:6px; }
+.rx-dup-warn {
+  background: $dup_bg;
+  border-left: 5px solid $dup_border;
+  color: $dup_text;
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin: 12px 0;
+  font-size: max(1rem, var(--rx-body, 18px));
+  line-height: 1.45;
+}
+.rx-dup-warn .rx-dup-bn { font-weight: 800; margin-bottom: 4px; }
+.rx-dup-warn .rx-dup-en { font-weight: 600; }
 .rx-reason { font-size:0.95rem; color:var(--rx-text); margin-top:4px; }
 .rx-readings { font-size:0.95rem; color:var(--rx-text); line-height:1.55; margin-top:8px; }
 .rx-readings b { color:var(--rx-text); }
@@ -561,6 +579,24 @@ def badge(colour: str) -> str:
     }
     css, label = mapping.get(str(colour).upper(), ("rx-red", str(colour)))
     return f'<span class="rx-badge {css}">{label}</span>'
+
+
+DUPLICATE_GENERIC_BN = (
+    "⚠ একই জেনেরিক দুটি ওষুধে আছে — ডাবল ডোজ হতে পারে, ফার্মাসিস্ট বা ডাক্তারকে জিজ্ঞাসা করুন।"
+)
+
+
+def is_duplicate_generic_warning(warning: str) -> bool:
+    return str(warning or "").startswith("Duplicate generic/group:")
+
+
+def duplicate_warning_html(warning: str) -> str:
+    return (
+        "<div class='rx-dup-warn'>"
+        f"<div class='rx-dup-bn'>{escape(DUPLICATE_GENERIC_BN)}</div>"
+        f"<div class='rx-dup-en'>{escape(str(warning or ''))}</div>"
+        "</div>"
+    )
 
 
 STATUS_LINES = {
